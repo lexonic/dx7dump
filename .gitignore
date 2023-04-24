@@ -1,4 +1,9 @@
-a.out
+# Executables
 dx7dump
-*~
+*.exe
+*.out
+*.app
 
+# Editor related files
+*.swp
+*.swo
