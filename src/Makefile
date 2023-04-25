@@ -3,7 +3,7 @@ COMPILER=g++
 #COMPILE=$(COMPILER) $(OPTIONS)
 COMPILE=$(COMPILER)
 INSTALL=install
-INSTALLDIR=~/.local/bin
+PREFIX=~/.local/bin
 
 # Compile main by default
 all: clean dx7dump install
@@ -12,13 +12,13 @@ dx7dump: dx7dump.cpp
 	$(COMPILE) -o $@ $<
 
 install: installdirs
-	$(INSTALL) -m 755 dx7dump $(DESTDIR)$(INSTALLDIR)
-	$(INSTALL) -m 755 dx7alldumps.sh $(DESTDIR)$(INSTALLDIR)/dx7alldumps
+	$(INSTALL) -m 755 dx7dump $(DESTDIR)$(PREFIX)
+	$(INSTALL) -m 755 dx7dumpall.sh $(DESTDIR)$(PREFIX)/dx7dumpall
 
 installdirs:
-	$(INSTALL) -d $(DESTDIR)$(INSTALLDIR)
+	$(INSTALL) -d $(DESTDIR)$(PREFIX)
 
-# Delete the build directory and program
+# Delete the program
 clean:
 	rm -f dx7dump
 
