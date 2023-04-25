@@ -1,6 +1,6 @@
-# Yamaha DX7 Sysex Dump Analyzer
+# DX7 Sysex Dump Analyzer
 
-**A command-line-tool to display Yamaha DX7 sysex files as human readable text.**
+**A command-line-tool to display Yamaha DX7 sysex files as human readable text**
 
 This is a fork of [Ted Felix](http://tedfelix.com/yamaha-dx7/index.html) [dx7dump](https://sourceforge.net/u/tedfelix/dx7dump/ci/master/tree/) 
 
@@ -10,13 +10,14 @@ Based on info from
 
 ## Features
 
-* Voice name listings of banks in long and compact form
-* Voice parameter listings in long and compact format
-* Shows algorithms as ASCII-art
-* Report errors of sysex files
-* Can fix sysex checksum errors and convert headerless files to regular DX7 sysex files
-* Show voice names in Unicode or plain ASCII
-* Scan folders recursively and list all voice names or voice parameters
+- [x] Voice name listings of banks in long and compact form
+- [x] Voice parameter listings in long and compact format
+- [x] Shows [DX7 algorithms as ASCII-art](https://github.com/lexonic/dx7dump/blob/main/algorithms_ascii/algorithms_unicode.txt)
+- [x] Show voice names in Unicode or plain ASCII
+- [x] Show voice data in hexadecimal
+- [x] Report errors in sysex files
+- [x] Fix sysex checksum errors and convert headerless files to regular DX7 sysex files
+- [x] Scan folders recursively and list all voice names or voice parameters
 
 
 ## Build and install
@@ -53,7 +54,7 @@ Options:
   -h, --help          this help
 ```
 
-## Usage of the dx7dump wrapper
+## Usage of dx7dumpall
 
 ```
 dx7dump wrapper: Print lists of all sound banks recursively.
