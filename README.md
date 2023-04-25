@@ -4,8 +4,8 @@
 
 This is a fork of [Ted Felix](http://tedfelix.com/yamaha-dx7/index.html) [dx7dump](https://sourceforge.net/u/tedfelix/dx7dump/ci/master/tree/) 
 
-Based on info from:
-<http://homepages.abdn.ac.uk/mth192/pages/dx7/sysex-format.txt>
+Based on info from
+[sysex-format.txt](https://web.archive.org/web/20170707125228/https://homepages.abdn.ac.uk/mth192/pages/dx7/sysex-format.txt). Archived from the [original](http://homepages.abdn.ac.uk/mth192/pages/dx7/sysex-format.txt) on July 7, 2017.
 
 
 ## Features
@@ -13,7 +13,7 @@ Based on info from:
 * Voice name listings of banks in long and compact form
 * Voice parameter listings in long and compact format
 * Shows algorithms as ASCII-art
-* Report errors in sysex files
+* Report errors of sysex files
 * Can fix sysex checksum errors and convert headerless files to regular DX7 sysex files
 * Show voice names in Unicode or plain ASCII
 * Scan folders recursively and list all voice names or voice parameters
@@ -25,7 +25,7 @@ Linux: run `make` as regular user:
 
 	make
 
-this will install two tools in the user's `~/.local/bin` directory:
+this will install two programs in the user's `~/.local/bin` directory:
 
 * dx7dump: a utility to print sound parameter of all sounds in a bank. 
 * dx7dumpall: a dx7dump wrapper to print list of all sound banks recursively in the given search directory.
