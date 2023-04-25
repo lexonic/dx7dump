@@ -1,12 +1,8 @@
 # Yamaha DX7 Sysex Dump Analyzer
 
-* Copyright 2012, Ted Felix (www.tedfelix.com)
-* Modifications 2023 by Bernhard Lex
-* License: GPLv3+
+**A command-line-tool to display Yamaha DX7 sysex files as human readable text.**
 
-A command-line-tool taking a Yamaha DX7 sysex file and prints it as human readable text.
-
-This is a fork of [Ted Felix's](http://tedfelix.com/yamaha-dx7/index.html) [dx7dump utility](https://sourceforge.net/u/tedfelix/dx7dump/ci/master/tree/) 
+This is a fork of [Ted Felix](http://tedfelix.com/yamaha-dx7/index.html) [dx7dump](https://sourceforge.net/u/tedfelix/dx7dump/ci/master/tree/) 
 
 Based on info from:
 <http://homepages.abdn.ac.uk/mth192/pages/dx7/sysex-format.txt>
