@@ -1,13 +1,13 @@
-//
-// dx7algorithms.h
-//
-// Yamaha DX7 Algorithms
-// Copyright 2023, Bernhard Lex
-// License: GPLv3+
-//
-// Based on info from:
-// https://static.righto.com/images/dx7-alg/algorithms.jpg
-//
+/*! \file dx7algorithms.h
+ *  \brief Yamaha DX7 Algorithms
+ *  
+ *  Copyright 2023, Bernhard Lex
+ *  License: GPLv3+
+ * 
+ *  Based on info from:
+ *  https://static.righto.com/images/dx7-alg/algorithms.jpg
+ */
+
 #ifndef _dx7algorithms_h
 #define _dx7algorithms_h
 
@@ -15,8 +15,8 @@
 #define use_ascii_v2
 
 
+//! UNICODE DIAGRAMS
 const char* algorithmDiagramUnicode[] = {
-// UNICODE DIAGRAMS
 // Algorithm #1
 "      ┌──┐\n"
 "     [6] │\n"
@@ -277,8 +277,8 @@ const char* algorithmDiagramUnicode[] = {
 };
 
 
+//! ASCII DIAGRAMS
 const char* algorithmDiagramAscii[] = {
-// ASCII DIAGRAMS
 // Algorithm #1
 "      +--+\n"
 "     [6] |\n"

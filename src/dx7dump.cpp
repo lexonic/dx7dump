@@ -1,25 +1,28 @@
-// Yamaha DX7 Sysex Dump
-// Copyright 2012, Ted Felix
-// Modifications 2023 by B.Lex
-// License: GPLv3+
-
-// Takes a Yamaha DX7 voice-bank sysex file and formats it as human readable text.
-// The format is also conducive to using diff (or meld) to examine differences
-// between patches.
-
-// Based on info from:
-// http://homepages.abdn.ac.uk/mth192/pages/dx7/sysex-format.txt
-
-// Build:
-//   g++ -o dx7dump dx7dump.cpp
-
-// Updates by B.Lex:
-// 2023-02-16: option -p implemented
-// 2023-02-17: option -c implemented
-// 2023-02-28: translate LCD-characters to ASCII, accept headerless-format
-// 2023-03-02: compiler-switch to select ASCII or UNICODE for displaying LCD content
-// 2023-04-20: option -e implemented. ASCII and UNICODE can now be selected by option -a|-u
-
+/*! \file dx7dump.cpp
+ *  \brief Yamaha DX7 Sysex Dump.
+ *  
+ *  Copyright 2012, Ted Felix
+ *  Modifications 2023 by B.Lex
+ *  License: GPLv3+
+ * 
+ *  Takes a Yamaha DX7 voice-bank sysex file and formats it as human readable text.
+ *  The format is also conducive to using diff (or meld) to examine differences
+ *  between patches.
+ * 
+ *  Based on info from:
+ *  http://homepages.abdn.ac.uk/mth192/pages/dx7/sysex-format.txt
+ * 
+ *  Build:
+ *    g++ -o dx7dump dx7dump.cpp
+ * 
+ *  Updates by B.Lex:
+ *  2023-02-16: option -p implemented
+ *  2023-02-17: option -c implemented
+ *  2023-02-28: translate LCD-characters to ASCII, accept headerless-format
+ *  2023-03-02: compiler-switch to select ASCII or UNICODE for displaying LCD content
+ *  2023-04-20: option -e implemented. ASCII and UNICODE can now be selected by option -a|-u
+ *
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -37,77 +40,82 @@
 
 // ***************************************************************************
 
+//! program version
 const char *version = "1.02a";
 
+
+//! sysex file-size of a dx7 bank-dump
 const unsigned sysexSize = 4104;
+//! file-size of a headerless dx7 bank-dump
 const unsigned rawDataSize = 4096;
 
+//! sysex file-size of a dx7 single-voice-dump
 const unsigned singleSysexSize = 163;
+//! file-size of a dx7 headerless single-voice-dump
 const unsigned singleRawDataSize = 155;
 
 
-// "-x" to show some data in hexadecimal
+//! set by option "-x" to show some data in hexadecimal
 bool showHex = false;
 
-// "-e" print errors only
+//! set by option "-e" print errors only
 bool errorsOnly = false;
 
-// "-l" for long listing
+//! set by option "-l" for long listing
 bool longListing = false;
 
-// "-c" for compact listing
+//! set by option "-c" for compact listing
 bool compactListing = false;
 
-// "-d" to find duplicate patches
+//! set by option "-d" to find duplicate patches
 bool findDupes = false;
 
-// "-p" to specify patch.  -1 means all.
+//! set by option "-p" to specify patch number; -1 means all.
 int patch = -1;
 
-// "--fix" try to fix corrupted files
+//! set by option "--fix": try to fix corrupted files
 bool fixFiles = false;
 
-// "-y" to say "yes" to fix files
+//! set by option "-y" to say "yes" to fix files
 bool askToFix = true;
 
-// "-no-backup" don't create backups when fixing files
+//! set by option "-no-backup": don't create backups when fixing files
 bool noBackup = false;
-
 
 #ifdef USE_UNICODE_DEFAULT  
 #define USE_UNICODE true
 #else
 #define USE_UNICODE false
 #endif
-// use unicode or ascii
+//! set by option "-u" or "-a" to use unicode or ascii
 bool useUnicode = USE_UNICODE;
 
-// filesize
+//! filesize of opened file
 int fsize;
 
-// sysex buffer
+//! sysex file data buffer
 unsigned char buffer[sysexSize];
 
-// error & info message buffer
+//! error & info message buffer
 char msgBuffer[100] = "";
 
-// we have a recoverable error
+//! true if we have a recoverable error
 bool softError = false;
 
-// if file has no sysex header, it might be a raw file
+//! if file has no sysex header, it might be a raw file
 bool sysexFile = true;
 
-// the active file seems corrupted and needs a fix
+//! the open file seems corrupted and could need a fix
 bool fixNeeded = false;
 
-// file is a single voice file
+//! the open file is a single voice file
 bool singleVoiceFile = false;
 
-// voice-name
+//! printable voice-name in ASCII or unicode 
 char name[41];      // max. length required for unicode
 //char name[11];        // max. length required for ASCII only
 
-// LCD-character translation table to UNICODE
+//! LCD-character translation table to UNICODE
 const char lcdTableUnicode[][4] = {
     "₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈", "₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈",   // 0x00
     " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ",   // 0x10
@@ -127,7 +135,7 @@ const char lcdTableUnicode[][4] = {
     "p", "q", "ϴ", "∞", "Ω", "ü", "Σ", "π", "ẍ", "y", "~", "~", "~", "÷", " ", "█",   // 0xF0
 };
 
-// LCD-character translation table for 7-bit ASCII (voice-name in sysex is also 7-bit)
+//! LCD-character translation table for 7-bit ASCII (voice-name in sysex is also 7-bit)
 const char lcdTableAscii[] = {
     ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',   // 0x00
     ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',   // 0x10
@@ -139,6 +147,7 @@ const char lcdTableAscii[] = {
     'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '>', '<',   // 0x70
 };
 
+//! help-text  
 const char helpText[] = {
     "Usage: dx7dump [OPTIONS] FILE\n"
     "\n"
@@ -163,7 +172,7 @@ const char helpText[] = {
     "  -h, --help          this help"
 };
 
-
+//! text displayed after program version
 const char versionText[] = {
     "Yamaha DX7 Sysex Dump Analyzer\n"
     "Copyright 2012, Ted Felix\n"
@@ -176,6 +185,8 @@ const char versionText[] = {
 
 // SYSEX Message: Bulk Data for 32 Voices
 
+
+//! Struct of one operator in packed format.
 struct OperatorPacked
 {
     unsigned char EG_R1;
@@ -211,8 +222,10 @@ struct OperatorPacked
     unsigned char frequencyFine;
 };
 
-// Yamaha DX7 Voice Bank "Bulk Dump Packed Format"
-// See section F of sysex-format.txt for details.
+/*! Yamaha DX7 Voice Bank in "Bulk Dump Packed Format".
+ *
+ * See section F of sysex-format.txt for details.
+ */
 struct VoicePacked
 {
     OperatorPacked op[6];
@@ -246,7 +259,7 @@ struct VoicePacked
     unsigned char name[10];
 };
 
-// sysex bulk data of 32 voice bank
+//! Sysex bulk data of 32 voice banks.
 struct DX7Sysex
 {
     unsigned char sysexBeginF0;  // 0xF0
@@ -264,8 +277,10 @@ struct DX7Sysex
 
 // ***************************************************************************
 
-// SYSEX Message: Bulk Data for 1 Voices
+// SYSEX Message: Bulk Data for 1 Voice
 
+
+//! Struct of one operator in unpacked format.
 struct OperatorUnpacked
 {
     unsigned char EG_R1;
@@ -291,8 +306,10 @@ struct OperatorUnpacked
     unsigned char detune;
 };
 
-// Yamaha DX7 Voice Bank "Single Voice Dump & Parameter #'s"
-// See section D of sysex-format.txt for details.
+/*! Yamaha DX7 Voice Bank as "Single Voice Dump & Parameter #'s".
+ *
+ * See section D of sysex-format.txt for details.
+ */
 struct VoiceUnpacked
 {
     OperatorUnpacked op[6];
@@ -319,7 +336,7 @@ struct VoiceUnpacked
     unsigned char name[10];
 };
 
-// sysex data of single voice
+//! Sysex data of a single voice.
 struct DX7SingleSysex
 {
     unsigned char sysexBeginF0;  // 0xF0
@@ -337,6 +354,14 @@ struct DX7SingleSysex
 
 // ***************************************************************************
 
+// Functions to convert data to text
+
+
+/*! Convert parameter value to ON/OFF string.
+ *
+ * \param x parameter value
+ * \return pointer to value string
+ */
 const char *OnOff(unsigned x)
 {
     if (x > 1)
@@ -346,6 +371,11 @@ const char *OnOff(unsigned x)
     return onOff[x];
 }
 
+/*! Convert parameter value to Curve string.
+ *
+ * \param x parameter value
+ * \return pointer to value string
+ */
 const char *Curve(unsigned x)
 {
     if (x > 3)
@@ -356,6 +386,11 @@ const char *Curve(unsigned x)
     return curves[x];
 }
 
+/*! Convert parameter value to LFOWave string.
+ *
+ * \param x parameter value
+ * \return pointer to value string
+ */
 const char *LFOWave(unsigned x)
 {
     if (x > 5)
@@ -367,6 +402,11 @@ const char *LFOWave(unsigned x)
     return waves[x];
 }
 
+/*! Convert parameter value to Mode string.
+ *
+ * \param x parameter value
+ * \return pointer to value string
+ */
 const char *Mode(unsigned x)
 {
     if (x > 1)
@@ -376,6 +416,11 @@ const char *Mode(unsigned x)
     return modes[x];
 }
 
+/*! Convert parameter value to Mode string (for compact view).
+ *
+ * \param x parameter value
+ * \return pointer to value string
+ */
 const char *ModeCompact(unsigned x)
 {
     if (x > 1)
@@ -385,6 +430,11 @@ const char *ModeCompact(unsigned x)
     return modes[x];
 }
 
+/*! Convert parameter value to Note-name string.
+ *
+ * \param x parameter value
+ * \return pointer to value string
+ */
 const char *Note(unsigned x)
 {
     x = x % 12;
@@ -393,6 +443,11 @@ const char *Note(unsigned x)
     return notes[x];
 }
 
+/*! Convert parameter value to Transpose string.
+ *
+ * \param x parameter value
+ * \return pointer to value string
+ */
 std::string Transpose(unsigned x)
 {
     if (x > 48)
@@ -405,6 +460,11 @@ std::string Transpose(unsigned x)
     return buffer;
 }
 
+/*! Convert parameter value to Breakpoint string.
+ *
+ * \param x parameter value
+ * \return pointer to value string
+ */
 std::string Breakpoint(unsigned x)
 {
     if (x > 99)
@@ -425,8 +485,12 @@ std::string Breakpoint(unsigned x)
 
 // ***************************************************************************
 
-// process command-line options
-int processOpts(int *argc, char ***argv)
+/*! Process command-line options.
+ *
+ *  \param argc argument count
+ *  \param argv argument vector
+ */
+void processOpts(int *argc, char ***argv)
 {
     struct option opts[] = {
         { "long", 0, 0, 'l' },
@@ -515,13 +579,15 @@ int processOpts(int *argc, char ***argv)
     // Bump to the end of the options.
     *argc -= optind;
     *argv += optind;
-  
-    return 0;
 }
 
 // ***************************************************************************
 
-// returns checksum of data block
+/*! Calculate the checksum of a sysex data block.
+ *
+ *  \param sysex a pointer to a DX7Sysex data block
+ *  \return checksum
+ */
 unsigned char Checksum(const DX7Sysex *sysex)
 {
     // Start of 4096 byte data block.
@@ -544,7 +610,12 @@ unsigned char Checksum(const DX7Sysex *sysex)
 
 // TODO: combine both Checksum functions
 
-// returns checksum of single voice data block
+/*! Calculate the checksum of a single voice data block.
+ *
+ *  \param voice a pointer to VoiceUnpacked data
+ *  \param blocksize the size of the voice data
+ *  \return checksum
+ */
 unsigned char ChecksumSingle(const VoiceUnpacked *voice, unsigned blocksize)
 {
     const unsigned char *p = (unsigned char *)voice;
@@ -564,7 +635,13 @@ unsigned char ChecksumSingle(const VoiceUnpacked *voice, unsigned blocksize)
 
 // ***************************************************************************
 
-// repair corrupt files
+/*! Repair corrupt sysex files.
+ *
+ *  \param sysex a pointer to a DX7Sysex data block
+ *  \param filename a pointer to the filename
+ *  \return 0 for successful fixing the file
+ *          1 for a failed attempt to fix the file
+ */
 int FixFile(DX7Sysex *sysex, const char *filename)
 {
     sysex->sysexBeginF0 = 0xF0;
@@ -607,6 +684,11 @@ int FixFile(DX7Sysex *sysex, const char *filename)
 
 // ***************************************************************************
 
+/*! Unpack a packed voice data-block.
+ *
+ *  \param uVoice a pointer to the generated unpacked data
+ *  \param pVoice a pointer to the packed voice data
+ */
 void UnpackVoice(VoiceUnpacked *uVoice, const VoicePacked *pVoice)
 {
     // unpack data for each operator
@@ -664,7 +746,11 @@ void UnpackVoice(VoiceUnpacked *uVoice, const VoicePacked *pVoice)
 
 // ***************************************************************************
 
-// Returns 0 if ok.
+/*! Check the integrity of a sysex dump
+ *
+ *  \param sysex a pointer to a DX7Sysex data block
+ *  \return 0 if ok
+ */
 int Verify(const DX7Sysex *sysex)
 {
     // *** Verify Header and Footer ***
@@ -720,7 +806,11 @@ int Verify(const DX7Sysex *sysex)
 
 // ***************************************************************************
 
-// Returns 0 if ok.
+/*! Check the integrity of a single voice sysex dump
+ *
+ *  \param sysex a pointer to a DX7SingleSysex data block
+ *  \return 0 if ok
+ */
 int VerifySingle(const DX7SingleSysex *sysex)
 {
     // *** Verify Header and Footer ***
@@ -766,13 +856,18 @@ int VerifySingle(const DX7SingleSysex *sysex)
 
 char empty[1] = "";
 
+/*! Print one row of an OperatorTable (compact form).
+ *
+ *  \param name pointer to the parameter-name of the row
+ *  \param data pointer to the stringified parameters of all 6 OP's
+ */
 void OpTableRow(const char* name, char* data = empty)
 {
     printf("\n%-22s |", name);
     if (data[0] == 0)
     {
         // print a blank row if no data
-        for (unsigned i = 1; i < 7; i++)
+        for (unsigned i = 0; i < 6; i++)
         {
             printf("             |");
         }
@@ -785,6 +880,8 @@ void OpTableRow(const char* name, char* data = empty)
 
 // ***************************************************************************
 
+/*! Print the horizontal line of an OperatorTable in compact view.
+ */
 void OpTableSeparator()
 {
     printf("\n-----------------------+");
@@ -796,6 +893,8 @@ void OpTableSeparator()
 
 // ***************************************************************************
 
+/*! Print a separator-line between the parameters of two different voices.
+ */
 void VoiceSeparator()
 {
     // make voice separator same length (+1) as op-table
@@ -808,6 +907,11 @@ void VoiceSeparator()
 
 // ***************************************************************************
 
+/*! Convert the name of a voice from the stored format to printable ASCII.
+ *
+ *  \param nameAscii a pointer to the converted ASCII string
+ *  \param nameLcd a pointer to the original name string as stored in file
+ */
 void Name2Ascii(char *nameAscii, const unsigned char *nameLcd)
 {
     if (useUnicode)
@@ -833,6 +937,10 @@ void Name2Ascii(char *nameAscii, const unsigned char *nameLcd)
 
 // ***************************************************************************
 
+/*! Print a filename.
+ *
+ *  \param filename a pointer to the filename
+ */
 void PrintFilename(const char *filename)
 {
     int n = 0;
@@ -846,6 +954,11 @@ void PrintFilename(const char *filename)
 
 // ***************************************************************************
 
+/*! Format and print a complete bank-dump.
+ *
+ *  \param sysex a pointer to a DX7Sysex data block
+ *  \param filename a pointer to the filename
+ */
 void Format(const DX7Sysex *sysex, const char *filename)
 {
     if (!longListing)
@@ -1204,6 +1317,10 @@ void Format(const DX7Sysex *sysex, const char *filename)
 
 // ***************************************************************************
 
+/*! Find and print duplicates within a voice bank dump.
+ *
+ *  \param sysex a pointer to a DX7Sysex data block
+ */
 void FindDupes(const DX7Sysex *sysex)
 {
     bool dupeFound = false;
@@ -1234,7 +1351,11 @@ void FindDupes(const DX7Sysex *sysex)
 
 // ***************************************************************************
 
-// Returns 0 if ok.
+/*! Process a complete voice dump sysex file.
+ *
+ *  \param filename a pointer to the filename
+ *  \return 0 if ok
+ */
 int processFile (char* filename)
 {
 	FILE *file = fopen(filename, "r");
@@ -1378,6 +1499,11 @@ int processFile (char* filename)
 
 // ***************************************************************************
 
+/*! The main function of dx7dump.
+ *
+ *  \param argc argument count
+ *  \param argv argument vector
+ */
 int main(int argc, char *argv[])
 {
     processOpts(&argc, &argv);
