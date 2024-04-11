@@ -34,7 +34,8 @@ while [ -n "$1" ]; do
 		-h|--help)	echo -e "dx7dump wrapper: Print lists of all sound banks recursively.\n"
 			echo "Usage: $0 [OPTIONS for dx7dump] [PATH]"
 			echo "    An argument WITHOUT a leading '-' or '--' is interpreted as the path where the recursive search will start."
-			echo "    All other arguments are passed to the dx7dump utility."
+			echo -e "    All other arguments are passed to the dx7dump utility:\n"
+			dx7dump -o
 			exit
 			;;
 		-p) # special case for -p with argument
