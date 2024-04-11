@@ -2,7 +2,7 @@
  *  \brief Yamaha DX7 Sysex Dump.
  *  
  *  Copyright 2012, Ted Felix
- *  Modifications 2023 by B.Lex
+ *  Modifications 2024 by B.Lex
  *  License: GPLv3+
  * 
  *  Takes a Yamaha DX7 voice-bank sysex file and formats it as human readable text.
@@ -16,6 +16,7 @@
  *    g++ -o dx7dump dx7dump.cpp
  * 
  *  Updates by B.Lex:
+ *  2024-03-17: options -n and -o implemented
  *  2023-02-16: option -p implemented
  *  2023-02-17: option -c implemented
  *  2023-02-28: translate LCD-characters to ASCII, accept headerless-format
@@ -41,7 +42,7 @@
 // ***************************************************************************
 
 //! program version
-const char *version = "1.02a";
+const char *version = "1.02c";
 
 
 //! sysex file-size of a dx7 bank-dump
@@ -75,6 +76,9 @@ int patch = -1;
 
 //! set by option "--fix": try to fix corrupted files
 bool fixFiles = false;
+
+//! set by option "-n": show plain sysex filenames
+bool plainFilenames = false;
 
 //! set by option "-y" to say "yes" to fix files
 bool askToFix = true;
@@ -148,9 +152,12 @@ const char lcdTableAscii[] = {
 };
 
 //! help-text  
-const char helpText[] = {
+const char usageText[] = {
     "Usage: dx7dump [OPTIONS] FILE\n"
     "\n"
+};
+
+const char optionsText[] = {
     "Options:\n"
     "  -l, --long          long listing (show parameter values)\n"
     "  -c, --compact       compact listing (can also be combined with -l)\n"
@@ -160,6 +167,7 @@ const char helpText[] = {
     "  --no-backup         don't create backups when fixing files\n"
     "                        WARNING: This option might result in data-loss!\n"
     "                        make sure you already have a backup of the sysex-file\n"
+    "  -n                  print plain filenames\n"
     "  -y, --yes           no questions asked. Answer everything with YES for '--fix'\n"
     "  -e, --errors        report only files with errors\n"
     "  -x, --hex           show voice names also as HEX and print single voice data in HEX\n"
@@ -253,7 +261,8 @@ struct VoicePacked
 
     unsigned char lfoSync : 1;  // VERIFIED
     unsigned char lfoWave : 3;  // Need to see S&H
-    unsigned char lfoPitchModSensitivity : 4;  // VERIFIED
+    unsigned char lfoPitchModSensitivity : 3;  // VERIFIED
+    unsigned : 1;
 
     unsigned char transpose;
     unsigned char name[10];
@@ -402,6 +411,22 @@ const char *LFOWave(unsigned x)
     return waves[x];
 }
 
+/*! Convert parameter value to LFOWave string.
+ *
+ * \param x parameter value
+ * \return pointer to value string
+ */
+const char *LFOWaveTable(unsigned x)
+{
+    if (x > 5)
+        return "*out of range*";
+
+    const char *waves[] = { "Triangle", "Saw Down", "Saw Up",
+                            "Square", "Sine", "S & H" };
+
+    return waves[x];
+}
+
 /*! Convert parameter value to Mode string.
  *
  * \param x parameter value
@@ -421,12 +446,12 @@ const char *Mode(unsigned x)
  * \param x parameter value
  * \return pointer to value string
  */
-const char *ModeCompact(unsigned x)
+const char *ModeTable(unsigned x)
 {
     if (x > 1)
         return "*out of range*";
 
-    const char *modes[] = { "Freq. Ratio", "Fixed Freq." };
+    const char *modes[] = { "Ratio", "Fixed" };
     return modes[x];
 }
 
@@ -516,7 +541,7 @@ void processOpts(int *argc, char ***argv)
   
     for (;;)
     {
-        int i = getopt_long(*argc, *argv, "lcdp:yexvh" ENCODE_ARG, opts, NULL);
+        int i = getopt_long(*argc, *argv, "lcdp:nyexvoh" ENCODE_ARG, opts, NULL);
         if (i == -1)
             break;
           
@@ -545,6 +570,9 @@ void processOpts(int *argc, char ***argv)
         case 'k': // --no-backup (long option only)
             noBackup = true;
             break;
+		case 'n':
+			plainFilenames = true;
+			break;
         case 'y':
             askToFix = false;
             break;
@@ -567,7 +595,9 @@ void processOpts(int *argc, char ***argv)
             exit(0);
         case 'h':
 			//printf("%s", helpText);
-			puts(helpText);
+			puts(usageText);
+        case 'o':
+			puts(optionsText);
             exit(0);
         default:
             puts("Try -h for help.");
@@ -949,7 +979,14 @@ void PrintFilename(const char *filename)
         // remove leading "./" from filename
         n = 2;
     }
-    printf("File: \"%s\"\n", filename + n);
+    if (plainFilenames)
+	{
+    	printf("%s\n", filename + n);
+	}
+	else
+	{
+		printf("File: \"%s\"\n", filename + n);
+	}
 }
 
 // ***************************************************************************
@@ -1075,16 +1112,19 @@ void Format(const DX7Sysex *sysex, const char *filename)
                     // print algorithm diagram as ASCII-art
                 	printf("\n%s\n", algorithmDiagram[voice->algorithm]);
                 }
+
+
+
                 printf("Feedback: %u\n", voice->feedback);
           
                 printf("LFO\n");
                 printf("  Wave: %s\n", LFOWave(voice->lfoWave));
                 printf("  Speed: %u\n", voice->lfoSpeed);
                 printf("  Delay: %u\n", voice->lfoDelay);
-                printf("  Pitch Mod Depth: %u\n", voice->lfoPitchModDepth);
-                printf("  Amplitude Mod Depth: %u\n", voice->lfoAMDepth);
+                printf("  Pitch Mod. Depth: %u\n", voice->lfoPitchModDepth);
+                printf("  Amplitude Mod. Depth: %u\n", voice->lfoAMDepth);
                 printf("  Key Sync: %s\n", OnOff(voice->lfoSync));  
-                printf("  Pitch Mod Sensitivity: %u\n", 
+                printf("  Pitch Mod. Sensitivity: %u\n", 
                        voice->lfoPitchModSensitivity);
           
                 printf("Oscillator Key Sync: %s\n", OnOff(voice->oscKeySync));
@@ -1145,7 +1185,7 @@ void Format(const DX7Sysex *sysex, const char *filename)
                         sprintf(ampModSens + strlen(ampModSens), 
                             " %11u |", voice->op[j].amplitudeModulationSensitivity);
                         sprintf(oscMode + strlen(oscMode), 
-                            " %11s |", ModeCompact(voice->op[j].oscillatorMode));
+                            " %11s |", ModeTable(voice->op[j].oscillatorMode));
                         sprintf(detune + strlen(detune), 
                             " %+11d |", voice->op[j].detune - 7);
                         sprintf(egR1L1 + strlen(egR1L1), 
@@ -1203,8 +1243,8 @@ void Format(const DX7Sysex *sysex, const char *filename)
                         printf(" Operator %u  |", i);
                     }
                     OpTableSeparator();
-                    OpTableRow("Amplitude Mod Sens", ampModSens);
-                    OpTableRow("Oscillator Mode", oscMode);
+                    OpTableRow("Amplitude Mod. Sens.", ampModSens);
+                    OpTableRow("Oscillator Freq. Mode", oscMode);
                     OpTableRow("Frequency", frequency);
                     OpTableRow("Detune", detune);
                     OpTableSeparator();
@@ -1223,7 +1263,7 @@ void Format(const DX7Sysex *sysex, const char *filename)
                     OpTableSeparator();
                     OpTableRow("Keyboard Rate Scaling", rateScale);
                     OpTableRow("Output Level", outputLevel);
-                    OpTableRow("Key Velocity Sens", keyVelSens);
+                    OpTableRow("Key Velocity Sens.", keyVelSens);
                     OpTableSeparator();
     
                     puts("");
