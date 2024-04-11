@@ -11,9 +11,9 @@ Based on info from
 ## Features
 
 - [x] Voice name listings of banks in long and compact form
-- [x] Voice parameter listings in long and compact format
+- [x] Voice data listings in tabular form
 - [x] Shows [DX7 algorithms as ASCII-art](https://github.com/lexonic/dx7dump/blob/main/algorithms_ascii/algorithms_unicode.txt)
-- [x] Show voice names in Unicode or plain ASCII
+- [x] Show voice names and table frames in Unicode or plain ASCII
 - [x] Show voice data in hexadecimal
 - [x] Report errors in sysex files
 - [x] Fix sysex checksum errors and convert headerless files to regular DX7 sysex files
@@ -38,18 +38,19 @@ this will install two programs in the user's `~/.local/bin` directory:
 Usage: dx7dump [OPTIONS] FILE
 
 Options:
-  -l, --long          long listing (show parameter values)
-  -c, --compact       compact listing (can also be combined with -l)
-  -p NUM, --patch NUM display patch number NUM
+  -d, --voicedata     show voice data lists
+  -l, --long          long listing format (one line per name or parameter)
+  -p NUM, --patch NUM show voice data list of patch number NUM
   --fix               try to fix corrupt files
                         creates a backup of the original file (*.ORIG)
   --no-backup         don't create backups when fixing files
                         WARNING: This option might result in data-loss!
                         make sure you already have a backup of the sysex-file
+  -n, --plain-names   print plain filenames
   -y, --yes           no questions asked. Answer everything with YES for '--fix'
-  -e, --errors        print only files with errors
+  -e, --errors        report only files with errors
   -x, --hex           show voice names also as HEX and print single voice data in HEX
-  -a, --ascii         use ASCII characters to show voice-names and algorithms (default = unicode)
+  -a, --ascii         use ASCII characters to show voice-names and algorithms (default = Unicode)
   -v, --version       version info
   -h, --help          this help
 ```
@@ -70,7 +71,7 @@ Usage: dx7dumpall [OPTIONS for dx7dump] [PATH]
 List sound names of rom1a.syx in compact form:
 
 ```
-$ dx7dump -c rom1a.syx 
+$ dx7dump rom1a.syx 
 File: "rom1a.syx"
  1 |BRASS   1 |           9 |PIANO   2 |          17 |E.ORGAN 1 |          25 |ORCH-CHIME| 
  2 |BRASS   2 |          10 |PIANO   3 |          18 |PIPES   1 |          26 |TUB BELLS | 
@@ -82,10 +83,11 @@ File: "rom1a.syx"
  8 |PIANO   1 |          16 |BASS    2 |          24 |FLUTE   1 |          32 |TAKE OFF  | 
 ```
 
-Complete sound parameter list of patch number 12 of rom1a.syx in compact form:
+Complete voice data list of patch number 12 of rom1a.syx in Unicode:
 
 ```
-$ dx7dump -cp 12 rom1a.syx 
+$ dx7dump -p 12 rom1a.syx 
+
 File: "rom1a.syx"
 Voice-#: 12
 Name: "GUITAR  1 "
@@ -99,47 +101,111 @@ Algorithm: 8
 [1]    [3]
  └──────┘
 
-Feedback: 7
-LFO
-  Wave: Sine
-  Speed: 35
-  Delay: 0
-  Pitch Mod Depth: 1
-  Amplitude Mod Depth: 3
-  Key Sync: Off
-  Pitch Mod Sensitivity: 3
-Oscillator Key Sync: Off
-Pitch Envelope Generator
-  Rate 1: 75    Level 1: 50
-  Rate 2: 80    Level 2: 50
-  Rate 3: 75    Level 3: 50
-  Rate 4: 60    Level 4: 50
-Transpose: 0
+┌────────────┬───────┬───────┬────────────┬────────┐
+│            │ Algo- │ Feed- │ Oscillator │ Trans- │
+│ Voice Name │ rithm │ back  │ Key Sync   │ pose   │
+├────────────┼───────┼───────┼────────────┼────────┤
+│ GUITAR  1  │     8 │     7 │        Off │      0 │
+└────────────┴───────┴───────┴────────────┴────────┘
 
-                       | Operator 1  | Operator 2  | Operator 3  | Operator 4  | Operator 5  | Operator 6  |
------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
-Amplitude Mod Sens     |           0 |           0 |           0 |           0 |           0 |           3 |
-Oscillator Mode        | Freq. Ratio | Freq. Ratio | Freq. Ratio | Freq. Ratio | Freq. Ratio | Freq. Ratio |
-Frequency              |           1 |           3 |           1 |           3 |           3 |          12 |
-Detune                 |          +0 |          +0 |          +0 |          +0 |          +0 |          +0 |
------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
-Envelope Generator     |             |             |             |             |             |             |
-  Rate 1 : Level 1     |   74 : 99   |   91 : 99   |   78 : 99   |   81 : 99   |   81 : 99   |   99 : 99   |
-  Rate 2 : Level 2     |   85 : 95   |   25 : 86   |   87 : 92   |   87 : 92   |   87 : 92   |   57 : 0    |
-  Rate 3 : Level 3     |   27 : 0    |   39 : 0    |   22 : 0    |   22 : 0    |   22 : 0    |   99 : 0    |
-  Rate 4 : Level 4     |   70 : 0    |   60 : 0    |   75 : 0    |   75 : 0    |   75 : 0    |   75 : 0    |
------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
-Keyboard Level Scaling |             |             |             |             |             |             |
-  Breakpoint           |         A-1 |         A-1 |          G2 |         A-1 |         A-1 |          C3 |
-  Left Curve           |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |
-  Right Curve          |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |
-  Left Depth           |           0 |           0 |           9 |           0 |           0 |          53 |
-  Right Depth          |           0 |          65 |           0 |          14 |          15 |          20 |
------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
-Keyboard Rate Scaling  |           4 |           2 |           3 |           4 |           4 |           0 |
-Output Level           |          99 |          93 |          99 |          89 |          99 |          57 |
-Key Velocity Sens      |           5 |           7 |           7 |           4 |           7 |           6 |
------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
+┌─────────────────────────────────────────────────────────────────────┬───────────────────────────────┐
+│                                  LFO                                │   Pitch Envelope Generator    │
+├──────────┬───────┬───────┬───────────┬───────────┬───────┬──────────┼───────┬───────┬───────┬───────┤
+│          │       │       │ Pitch     │ Amplitude │ Key   │ Pitch    │       │       │       │       │
+│ Wave     │ Speed │ Delay │ Mod Depth │ Mod Depth │ Sync  │ Mod Sens │ R1:L1 │ R2:L2 │ R3:L3 │ R4:L4 │
+├──────────┼───────┼───────┼───────────┼───────────┼───────┼──────────┼───────┼───────┼───────┼───────┤
+│     Sine │    35 │     0 │         1 │         3 │   Off │        3 │ 75:50 │ 80:50 │ 75:50 │ 60:50 │
+└──────────┴───────┴───────┴───────────┴───────────┴───────┴──────────┴───────┴───────┴───────┴───────┘
+
+┌────────────────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┐
+│                        │ Operator 1  │ Operator 2  │ Operator 3  │ Operator 4  │ Operator 5  │ Operator 6  │
+├────────────────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+│ Amplitude Mod. Sens.   │           0 │           0 │           0 │           0 │           0 │           3 │
+│ Oscillator Freq. Mode  │       Ratio │       Ratio │       Ratio │       Ratio │       Ratio │       Ratio │
+│ Frequency              │           1 │           3 │           1 │           3 │           3 │          12 │
+│ Detune                 │          +0 │          +0 │          +0 │          +0 │          +0 │          +0 │
+├────────────────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+│ Envelope Generator     │             │             │             │             │             │             │
+│   Rate 1 : Level 1     │   74 : 99   │   91 : 99   │   78 : 99   │   81 : 99   │   81 : 99   │   99 : 99   │
+│   Rate 2 : Level 2     │   85 : 95   │   25 : 86   │   87 : 92   │   87 : 92   │   87 : 92   │   57 : 0    │
+│   Rate 3 : Level 3     │   27 : 0    │   39 : 0    │   22 : 0    │   22 : 0    │   22 : 0    │   99 : 0    │
+│   Rate 4 : Level 4     │   70 : 0    │   60 : 0    │   75 : 0    │   75 : 0    │   75 : 0    │   75 : 0    │
+├────────────────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+│ Keyboard Level Scaling │             │             │             │             │             │             │
+│   Breakpoint           │         A-1 │         A-1 │          G2 │         A-1 │         A-1 │          C3 │
+│   Left Curve           │        -LIN │        -LIN │        -LIN │        -LIN │        -LIN │        -LIN │
+│   Right Curve          │        -LIN │        -LIN │        -LIN │        -LIN │        -LIN │        -LIN │
+│   Left Depth           │           0 │           0 │           9 │           0 │           0 │          53 │
+│   Right Depth          │           0 │          65 │           0 │          14 │          15 │          20 │
+├────────────────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+│ Keyboard Rate Scaling  │           4 │           2 │           3 │           4 │           4 │           0 │
+│ Output Level           │          99 │          93 │          99 │          89 │          99 │          57 │
+│ Key Velocity Sens.     │           5 │           7 │           7 │           4 │           7 │           6 │
+└────────────────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┘
+```
+
+And the same patch in ASCII format:
+
+```
+dx7dump -a -p12 rom1a.syx 
+File: "rom1a.syx"
+Voice-#: 12
+Name: "GUITAR  1 "
+
+Algorithm: 8
+
+           [6]
+     +--+   |
+[2]  | [4] [5]
+ |   +--| /
+[1]    [3]
+ |      | 
+ +------+
+
++------------+-------+-------+------------+--------+
+|            | Algo- | Feed- | Oscillator | Trans- |
+| Voice Name | rithm | back  | Key Sync   | pose   |
++------------+-------+-------+------------+--------+
+| GUITAR  1  |     8 |     7 |        Off |      0 |
++------------+-------+-------+------------+--------+
+
+
++---------------------------------------------------------------------+-------------------------------+
+|                                  LFO                                |   Pitch Envelope Generator    |
++----------+-------+-------+-----------+-----------+-------+----------+-------+-------+-------+-------+
+|          |       |       | Pitch     | Amplitude | Key   | Pitch    |       |       |       |       |
+| Wave     | Speed | Delay | Mod Depth | Mod Depth | Sync  | Mod Sens | R1:L1 | R2:L2 | R3:L3 | R4:L4 |
++----------+-------+-------+-----------+-----------+-------+----------+-------+-------+-------+-------+
+|     Sine |    35 |     0 |         1 |         3 |   Off |        3 | 75:50 | 80:50 | 75:50 | 60:50 |
++----------+-------+-------+-----------+-----------+-------+----------+-------+-------+-------+-------+
+
+
++------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
+|                        | Operator 1  | Operator 2  | Operator 3  | Operator 4  | Operator 5  | Operator 6  |
++------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
+| Amplitude Mod. Sens.   |           0 |           0 |           0 |           0 |           0 |           3 |
+| Oscillator Freq. Mode  |       Ratio |       Ratio |       Ratio |       Ratio |       Ratio |       Ratio |
+| Frequency              |           1 |           3 |           1 |           3 |           3 |          12 |
+| Detune                 |          +0 |          +0 |          +0 |          +0 |          +0 |          +0 |
++------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
+| Envelope Generator     |             |             |             |             |             |             |
+|   Rate 1 : Level 1     |   74 : 99   |   91 : 99   |   78 : 99   |   81 : 99   |   81 : 99   |   99 : 99   |
+|   Rate 2 : Level 2     |   85 : 95   |   25 : 86   |   87 : 92   |   87 : 92   |   87 : 92   |   57 : 0    |
+|   Rate 3 : Level 3     |   27 : 0    |   39 : 0    |   22 : 0    |   22 : 0    |   22 : 0    |   99 : 0    |
+|   Rate 4 : Level 4     |   70 : 0    |   60 : 0    |   75 : 0    |   75 : 0    |   75 : 0    |   75 : 0    |
++------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
+| Keyboard Level Scaling |             |             |             |             |             |             |
+|   Breakpoint           |         A-1 |         A-1 |          G2 |         A-1 |         A-1 |          C3 |
+|   Left Curve           |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |
+|   Right Curve          |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |
+|   Left Depth           |           0 |           0 |           9 |           0 |           0 |          53 |
+|   Right Depth          |           0 |          65 |           0 |          14 |          15 |          20 |
++------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
+| Keyboard Rate Scaling  |           4 |           2 |           3 |           4 |           4 |           0 |
+| Output Level           |          99 |          93 |          99 |          89 |          99 |          57 |
+| Key Velocity Sens.     |           5 |           7 |           7 |           4 |           7 |           6 |
++------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
+
 ```
 
 List only files with sysex errors and single voice files:

@@ -32,7 +32,7 @@ printbank () {
 while [ -n "$1" ]; do
 	case "$1" in
 		-h|--help)	echo -e "dx7dump wrapper: Print lists of all sound banks recursively.\n"
-			echo "Usage: $0 [OPTIONS for dx7dump] [PATH]"
+			echo "Usage: dxdumpall [OPTIONS for dx7dump] [PATH]"
 			echo "    An argument WITHOUT a leading '-' or '--' is interpreted as the path where the recursive search will start."
 			echo -e "    All other arguments are passed to the dx7dump utility:\n"
 			dx7dump -o
