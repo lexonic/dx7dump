@@ -16,12 +16,14 @@
  *    g++ -o dx7dump dx7dump.cpp
  * 
  *  Updates by B.Lex:
- *  2024-03-17: options -n and -o implemented
- *  2023-02-16: option -p implemented
- *  2023-02-17: option -c implemented
- *  2023-02-28: translate LCD-characters to ASCII, accept headerless-format
- *  2023-03-02: compiler-switch to select ASCII or UNICODE for displaying LCD content
- *  2023-04-20: option -e implemented. ASCII and UNICODE can now be selected by option -a|-u
+ *  2024-03-17: Options -n and -o implemented
+ *  2023-02-16: Option -p implemented
+ *  2023-02-17: Option -c implemented
+ *  2023-02-28: Translate LCD-characters to ASCII, accept headerless-format
+ *  2023-03-02: Compiler-switch to select ASCII or UNICODE for displaying LCD content
+ *  2023-04-20: Option -e implemented. ASCII and UNICODE can now be selected by option -a|-u
+ *  2024-04-11: Default view is now tabular view.
+ *              Option -l is now -d (voicedata). Option -c is now -l (with opposite meaning).
  *
  */
 
@@ -42,7 +44,7 @@
 // ***************************************************************************
 
 //! program version
-const char *version = "1.02c";
+const char *version = "1.03";
 
 
 //! sysex file-size of a dx7 bank-dump
@@ -62,13 +64,13 @@ bool showHex = false;
 //! set by option "-e" print errors only
 bool errorsOnly = false;
 
+//! set by option "-d" for voice data listing
+bool voiceDataList = false;
+
 //! set by option "-l" for long listing
-bool longListing = false;
+bool tabularListing = true;
 
-//! set by option "-c" for compact listing
-bool compactListing = false;
-
-//! set by option "-d" to find duplicate patches
+//! set by option "-i" to find duplicate patches
 bool findDupes = false;
 
 //! set by option "-p" to specify patch number; -1 means all.
@@ -159,9 +161,9 @@ const char usageText[] = {
 
 const char optionsText[] = {
     "Options:\n"
-    "  -l, --long          long listing (show parameter values)\n"
-    "  -c, --compact       compact listing (can also be combined with -l)\n"
-    "  -p NUM, --patch NUM display patch number NUM\n"
+    "  -d, --voicedata     show voice data lists\n"
+    "  -l, --long          long listing format (one line per parameter)\n"
+    "  -p NUM, --patch NUM show voice data list of patch number NUM\n"
     "  --fix               try to fix corrupt files\n"
     "                        creates a backup of the original file (*.ORIG)\n"
     "  --no-backup         don't create backups when fixing files\n"
@@ -366,6 +368,18 @@ struct DX7SingleSysex
 // Functions to convert data to text
 
 
+/*! Return "out of range" string.
+ *
+ * \return "out of range" string
+ */
+const char *OutOfRange()
+{
+    if (tabularListing)
+		return "~~~";
+	else
+        return "*out of range*";
+}
+
 /*! Convert parameter value to ON/OFF string.
  *
  * \param x parameter value
@@ -374,7 +388,7 @@ struct DX7SingleSysex
 const char *OnOff(unsigned x)
 {
     if (x > 1)
-        return "*out of range*";
+        return OutOfRange();
         
     const char *onOff[] = { "Off", "On" };
     return onOff[x];
@@ -388,7 +402,7 @@ const char *OnOff(unsigned x)
 const char *Curve(unsigned x)
 {
     if (x > 3)
-        return "*out of range*";
+        return OutOfRange();
 
     const char *curves[] = { "-LIN", "-EXP", "+EXP", "+LIN" };
 
@@ -403,28 +417,18 @@ const char *Curve(unsigned x)
 const char *LFOWave(unsigned x)
 {
     if (x > 5)
-        return "*out of range*";
+        return OutOfRange();
 
     const char *waves[] = { "Triangle", "Saw Down", "Saw Up",
                             "Square", "Sine", "Sample & Hold" };
 
-    return waves[x];
-}
+    const char *waves_tableview[] = { "Triangle", "Saw Down", "Saw Up",
+                            	  "Square", "Sine", "S&H" };
 
-/*! Convert parameter value to LFOWave string.
- *
- * \param x parameter value
- * \return pointer to value string
- */
-const char *LFOWaveTable(unsigned x)
-{
-    if (x > 5)
-        return "*out of range*";
-
-    const char *waves[] = { "Triangle", "Saw Down", "Saw Up",
-                            "Square", "Sine", "S & H" };
-
-    return waves[x];
+    if (tabularListing)
+    	return waves_tableview[x];
+	else
+    	return waves[x];
 }
 
 /*! Convert parameter value to Mode string.
@@ -435,24 +439,16 @@ const char *LFOWaveTable(unsigned x)
 const char *Mode(unsigned x)
 {
     if (x > 1)
-        return "*out of range*";
+        return OutOfRange();
 
     const char *modes[] = { "Frequency (Ratio)", "Fixed Frequency (Hz)" };
-    return modes[x];
-}
 
-/*! Convert parameter value to Mode string (for compact view).
- *
- * \param x parameter value
- * \return pointer to value string
- */
-const char *ModeTable(unsigned x)
-{
-    if (x > 1)
-        return "*out of range*";
+    const char *modes_tableview[] = { "Ratio", "Fixed" };
 
-    const char *modes[] = { "Ratio", "Fixed" };
-    return modes[x];
+    if (tabularListing)
+    	return modes_tableview[x];
+	else
+	    return modes[x];
 }
 
 /*! Convert parameter value to Note-name string.
@@ -476,7 +472,7 @@ const char *Note(unsigned x)
 std::string Transpose(unsigned x)
 {
     if (x > 48)
-        return "*out of range*";
+        return OutOfRange();
 
     // Anything's better than sstream!
     char buffer[10];
@@ -493,7 +489,7 @@ std::string Transpose(unsigned x)
 std::string Breakpoint(unsigned x)
 {
     if (x > 99)
-        return "*out of range*";
+        return OutOfRange();
         
     char buffer[10];
 
@@ -518,9 +514,9 @@ std::string Breakpoint(unsigned x)
 void processOpts(int *argc, char ***argv)
 {
     struct option opts[] = {
+        { "voicedata", 0, 0, 'd' },
         { "long", 0, 0, 'l' },
-        { "compact", 0, 0, 'c' },
-        { "find-dupes", 0, 0, 'd' },
+        { "find-dupes", 0, 0, 'i' },	// a hidden option
         { "patch", 1, 0, 'p' },
         { "fix", 0, 0, 'f' },
         { "yes", 0, 0, 'y' },
@@ -541,25 +537,25 @@ void processOpts(int *argc, char ***argv)
   
     for (;;)
     {
-        int i = getopt_long(*argc, *argv, "lcdp:nyexvoh" ENCODE_ARG, opts, NULL);
+        int i = getopt_long(*argc, *argv, "dlip:nyexvoh" ENCODE_ARG, opts, NULL);
         if (i == -1)
             break;
           
         switch (i) 
         {
-        case 'l':
-            longListing = true;
-            break;
-        case 'c':
-            compactListing = true;
-            break;
         case 'd':
+            voiceDataList = true;
+            break;
+        case 'l':
+            tabularListing = false;
+            break;
+        case 'i':
             findDupes = true;
             break;
         case 'p':
             patch = strtol(optarg, NULL, 0);
             patch--;
-            longListing = true;
+            voiceDataList = true;
             break;
         case 'x':
             showHex = true;
@@ -893,7 +889,7 @@ char empty[1] = "";
  */
 void OpTableRow(const char* name, char* data = empty)
 {
-    printf("\n%-22s |", name);
+    printf("\n| %-22s |", name);
     if (data[0] == 0)
     {
         // print a blank row if no data
@@ -914,7 +910,7 @@ void OpTableRow(const char* name, char* data = empty)
  */
 void OpTableSeparator()
 {
-    printf("\n-----------------------+");
+    printf("\n+------------------------+");
     for (unsigned i = 1; i < 7; i++)
     {
         printf("-------------+");
@@ -998,13 +994,13 @@ void PrintFilename(const char *filename)
  */
 void Format(const DX7Sysex *sysex, const char *filename)
 {
-    if (!longListing)
+    if (!voiceDataList)
     {
         // voice name listing only
         unsigned rows = 32;
         unsigned columns = 1;
         char voiceDelimiter = '|';
-        if (compactListing)
+        if (tabularListing)
         {
             if (!showHex)
             {
@@ -1050,7 +1046,7 @@ void Format(const DX7Sysex *sysex, const char *filename)
         }
         puts("");          
     }
-    else    // long listing
+    else    // voice data listing
     {
         if (softError)
         {
@@ -1107,43 +1103,63 @@ void Format(const DX7Sysex *sysex, const char *filename)
 
                 puts("\n");
                 printf("Algorithm: %u\n", voice->algorithm + 1);
-                if (compactListing)
+
+                if (tabularListing)
                 {
                     // print algorithm diagram as ASCII-art
                 	printf("\n%s\n", algorithmDiagram[voice->algorithm]);
+
+                	//printf("\n");
+					printf("+------------+-------+-------+------------+-------------------------------+--------+\n");
+					printf("|            | Algo- | Feed- | Oscillator |   Pitch Envelope Generator    | Trans- |\n");
+					printf("| Voice Name | rithm | back  | Key Sync   | R1:L1 | R2:L2 | R3:L3 | R4:L4 | pose   |\n");
+					printf("+------------+-------+-------+------------+-------+-------+-------+-------+--------+\n");
+					printf("| %-10s | %5u | %5u | %10s | %2u:%-2u | %2u:%-2u | %2u:%-2u | %2u:%-2u | %6d |\n",
+						name,
+						voice->algorithm + 1,
+						voice->feedback,
+						OnOff(voice->oscKeySync),
+						voice->pitchEGR1, voice->pitchEGL1,
+						voice->pitchEGR2, voice->pitchEGL2,
+						voice->pitchEGR3, voice->pitchEGL3,
+						voice->pitchEGR4, voice->pitchEGL4,
+						voice->transpose - 24);
+					printf("+------------+-------+-------+------------+-------+-------+-------+-------+--------+\n");
+                	printf("\n\n");
+
+					printf("+---------------------------------------------------------------------+\n");
+					printf("|                                  LFO                                |\n");
+					printf("|          |       |       | Pitch     | Amplitude | Key   | Pitch    |\n");
+					printf("| Wave     | Speed | Delay | Mod Depth | Mod Depth | Sync  | Mod Sens |\n");
+					printf("+----------+-------+-------+-----------+-----------+-------+----------+\n");
+					printf("| %8s | %5u | %5u | %9u | %9u | %5s | %8u |\n",
+	                	LFOWave(voice->lfoWave),
+	                	voice->lfoSpeed,
+	                	voice->lfoDelay,
+	                	voice->lfoPitchModDepth,
+	                	voice->lfoAMDepth,
+	                	OnOff(voice->lfoSync),  
+	                    voice->lfoPitchModSensitivity);
+					printf("+----------+-------+-------+-----------+-----------+-------+----------+\n");
+                	printf("\n");
                 }
-
-
-
-                printf("Feedback: %u\n", voice->feedback);
-          
-                printf("LFO\n");
-                printf("  Wave: %s\n", LFOWave(voice->lfoWave));
-                printf("  Speed: %u\n", voice->lfoSpeed);
-                printf("  Delay: %u\n", voice->lfoDelay);
-                printf("  Pitch Mod. Depth: %u\n", voice->lfoPitchModDepth);
-                printf("  Amplitude Mod. Depth: %u\n", voice->lfoAMDepth);
-                printf("  Key Sync: %s\n", OnOff(voice->lfoSync));  
-                printf("  Pitch Mod. Sensitivity: %u\n", 
-                       voice->lfoPitchModSensitivity);
-          
-                printf("Oscillator Key Sync: %s\n", OnOff(voice->oscKeySync));
-          
-                printf("Pitch Envelope Generator\n");
-    
-                if (compactListing)
-                {
-                    printf("  Rate 1: %-3u   Level 1: %u\n", 
-                        voice->pitchEGR1, voice->pitchEGL1);
-                    printf("  Rate 2: %-3u   Level 2: %u\n", 
-                        voice->pitchEGR2, voice->pitchEGL2);
-                    printf("  Rate 3: %-3u   Level 3: %u\n", 
-                        voice->pitchEGR3, voice->pitchEGL3);
-                    printf("  Rate 4: %-3u   Level 4: %u\n", 
-                        voice->pitchEGR4, voice->pitchEGL4);
-                }
-                else
-                {
+				else
+				{
+	                printf("Feedback: %u\n", voice->feedback);
+	          
+	                printf("LFO\n");
+	                printf("  Wave: %s\n", LFOWave(voice->lfoWave));
+	                printf("  Speed: %u\n", voice->lfoSpeed);
+	                printf("  Delay: %u\n", voice->lfoDelay);
+	                printf("  Pitch Mod. Depth: %u\n", voice->lfoPitchModDepth);
+	                printf("  Amplitude Mod. Depth: %u\n", voice->lfoAMDepth);
+	                printf("  Key Sync: %s\n", OnOff(voice->lfoSync));  
+	                printf("  Pitch Mod. Sensitivity: %u\n", 
+	                       voice->lfoPitchModSensitivity);
+	          
+	                printf("Oscillator Key Sync: %s\n", OnOff(voice->oscKeySync));
+	          
+	                printf("Pitch Envelope Generator\n");
                     printf("  Rate 1: %u\n", voice->pitchEGR1);
                     printf("  Rate 2: %u\n", voice->pitchEGR2);
                     printf("  Rate 3: %u\n", voice->pitchEGR3);
@@ -1152,14 +1168,15 @@ void Format(const DX7Sysex *sysex, const char *filename)
                     printf("  Level 2: %u\n", voice->pitchEGL2);
                     printf("  Level 3: %u\n", voice->pitchEGL3);
                     printf("  Level 4: %u\n", voice->pitchEGL4);
+   
+	                //printf("Transpose: %s\n", Transpose(voice->transpose).c_str());
+    	            printf("Transpose: %d\n", voice->transpose - 24);
                 }
-    
-                //printf("Transpose: %s\n", Transpose(voice->transpose).c_str());
-                printf("Transpose: %d\n", voice->transpose - 24);
-
-                if (compactListing)
+ 
+                if (tabularListing)
                 {
                     // buffers for operator table row data
+                    char tableHeader[130] = "";
                     char ampModSens[130] = "";
                     char oscMode[130] = "";
                     char frequency[130] = "";
@@ -1182,10 +1199,12 @@ void Format(const DX7Sysex *sysex, const char *filename)
                     {
                         char buffer[25];
                         const unsigned j = 5 - i;
+                        sprintf(tableHeader + strlen(tableHeader), 
+                            " Operator %-2u |", i + 1);
                         sprintf(ampModSens + strlen(ampModSens), 
                             " %11u |", voice->op[j].amplitudeModulationSensitivity);
                         sprintf(oscMode + strlen(oscMode), 
-                            " %11s |", ModeTable(voice->op[j].oscillatorMode));
+                            " %11s |", Mode(voice->op[j].oscillatorMode));
                         sprintf(detune + strlen(detune), 
                             " %+11d |", voice->op[j].detune - 7);
                         sprintf(egR1L1 + strlen(egR1L1), 
@@ -1237,11 +1256,8 @@ void Format(const DX7Sysex *sysex, const char *filename)
     
                     // print operator table
                     // operator table head
-                    printf("\n                       |");
-                    for (unsigned i = 1; i < 7; i++)
-                    {
-                        printf(" Operator %u  |", i);
-                    }
+                    OpTableSeparator();
+                    OpTableRow("", tableHeader);
                     OpTableSeparator();
                     OpTableRow("Amplitude Mod. Sens.", ampModSens);
                     OpTableRow("Oscillator Freq. Mode", oscMode);
