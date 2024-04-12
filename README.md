@@ -41,6 +41,7 @@ Options:
   -d, --voicedata     show voice data lists
   -l, --long          long listing format (one line per name or parameter)
   -p NUM, --patch NUM show voice data list of patch number NUM
+  -f, --formfeed      use form-feed instead of patch separator line
   --fix               try to fix corrupt files
                         creates a backup of the original file (*.ORIG)
   --no-backup         don't create backups when fixing files
@@ -50,10 +51,13 @@ Options:
   -y, --yes           no questions asked. Answer everything with YES for '--fix'
   -e, --errors        report only files with errors
   -x, --hex           show voice names also as HEX and print single voice data in HEX
-  -a, --ascii         use ASCII characters to show voice-names and algorithms (default = Unicode)
+  -a, --ascii         use ASCII characters for voice-names, algorithms, and tables
+                        (default = Unicode)
   -v, --version       version info
   -h, --help          this help
 ```
+
+**NOTE:** some command line options have changed with release v1.03.
 
 ## Usage of dx7dumpall
 
@@ -117,37 +121,37 @@ Algorithm: 8
 │     Sine │    35 │     0 │         1 │         3 │   Off │        3 │ 75:50 │ 80:50 │ 75:50 │ 60:50 │
 └──────────┴───────┴───────┴───────────┴───────────┴───────┴──────────┴───────┴───────┴───────┴───────┘
 
-┌────────────────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┐
-│                        │ Operator 1  │ Operator 2  │ Operator 3  │ Operator 4  │ Operator 5  │ Operator 6  │
-├────────────────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
-│ Amplitude Mod. Sens.   │           0 │           0 │           0 │           0 │           0 │           3 │
-│ Oscillator Freq. Mode  │       Ratio │       Ratio │       Ratio │       Ratio │       Ratio │       Ratio │
-│ Frequency              │           1 │           3 │           1 │           3 │           3 │          12 │
-│ Detune                 │          +0 │          +0 │          +0 │          +0 │          +0 │          +0 │
-├────────────────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
-│ Envelope Generator     │             │             │             │             │             │             │
-│   Rate 1 : Level 1     │   74 : 99   │   91 : 99   │   78 : 99   │   81 : 99   │   81 : 99   │   99 : 99   │
-│   Rate 2 : Level 2     │   85 : 95   │   25 : 86   │   87 : 92   │   87 : 92   │   87 : 92   │   57 : 0    │
-│   Rate 3 : Level 3     │   27 : 0    │   39 : 0    │   22 : 0    │   22 : 0    │   22 : 0    │   99 : 0    │
-│   Rate 4 : Level 4     │   70 : 0    │   60 : 0    │   75 : 0    │   75 : 0    │   75 : 0    │   75 : 0    │
-├────────────────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
-│ Keyboard Level Scaling │             │             │             │             │             │             │
-│   Breakpoint           │         A-1 │         A-1 │          G2 │         A-1 │         A-1 │          C3 │
-│   Left Curve           │        -LIN │        -LIN │        -LIN │        -LIN │        -LIN │        -LIN │
-│   Right Curve          │        -LIN │        -LIN │        -LIN │        -LIN │        -LIN │        -LIN │
-│   Left Depth           │           0 │           0 │           9 │           0 │           0 │          53 │
-│   Right Depth          │           0 │          65 │           0 │          14 │          15 │          20 │
-├────────────────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
-│ Keyboard Rate Scaling  │           4 │           2 │           3 │           4 │           4 │           0 │
-│ Output Level           │          99 │          93 │          99 │          89 │          99 │          57 │
-│ Key Velocity Sens.     │           5 │           7 │           7 │           4 │           7 │           6 │
-└────────────────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┘
+┌───────────────────────┬────────────┬────────────┬────────────┬────────────┬────────────┬────────────┐
+│                       │ Operator 1 │ Operator 2 │ Operator 3 │ Operator 4 │ Operator 5 │ Operator 6 │
+├───────────────────────┼────────────┼────────────┼────────────┼────────────┼────────────┼────────────┤
+│ Amplitude Mod. Sens.  │          0 │          0 │          0 │          0 │          0 │          3 │
+│ Oscillator Freq. Mode │      Ratio │      Ratio │      Ratio │      Ratio │      Ratio │      Ratio │
+│ Frequency             │          1 │          3 │          1 │          3 │          3 │         12 │
+│ Detune                │         +0 │         +0 │         +0 │         +0 │         +0 │         +0 │
+├───────────────────────┼────────────┼────────────┼────────────┼────────────┼────────────┼────────────┤
+│ Envelope Generator    │            │            │            │            │            │            │
+│   Rate 1 : Level 1    │   74 : 99  │   91 : 99  │   78 : 99  │   81 : 99  │   81 : 99  │   99 : 99  │
+│   Rate 2 : Level 2    │   85 : 95  │   25 : 86  │   87 : 92  │   87 : 92  │   87 : 92  │   57 : 0   │
+│   Rate 3 : Level 3    │   27 : 0   │   39 : 0   │   22 : 0   │   22 : 0   │   22 : 0   │   99 : 0   │
+│   Rate 4 : Level 4    │   70 : 0   │   60 : 0   │   75 : 0   │   75 : 0   │   75 : 0   │   75 : 0   │
+├───────────────────────┼────────────┼────────────┼────────────┼────────────┼────────────┼────────────┤
+│ Keybd. Level Scaling  │            │            │            │            │            │            │
+│   Breakpoint          │        A-1 │        A-1 │         G2 │        A-1 │        A-1 │         C3 │
+│   Left Curve          │       -LIN │       -LIN │       -LIN │       -LIN │       -LIN │       -LIN │
+│   Right Curve         │       -LIN │       -LIN │       -LIN │       -LIN │       -LIN │       -LIN │
+│   Left Depth          │          0 │          0 │          9 │          0 │          0 │         53 │
+│   Right Depth         │          0 │         65 │          0 │         14 │         15 │         20 │
+├───────────────────────┼────────────┼────────────┼────────────┼────────────┼────────────┼────────────┤
+│ Keyboard Rate Scaling │          4 │          2 │          3 │          4 │          4 │          0 │
+│ Output Level          │         99 │         93 │         99 │         89 │         99 │         57 │
+│ Key Velocity Sens.    │          5 │          7 │          7 │          4 │          7 │          6 │
+└───────────────────────┴────────────┴────────────┴────────────┴────────────┴────────────┴────────────┘
 ```
 
 And the same patch in ASCII format:
 
 ```
-dx7dump -a -p12 rom1a.syx 
+$ dx7dump -a -p12 rom1a.syx 
 File: "rom1a.syx"
 Voice-#: 12
 Name: "GUITAR  1 "
@@ -180,31 +184,31 @@ Algorithm: 8
 +----------+-------+-------+-----------+-----------+-------+----------+-------+-------+-------+-------+
 
 
-+------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
-|                        | Operator 1  | Operator 2  | Operator 3  | Operator 4  | Operator 5  | Operator 6  |
-+------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
-| Amplitude Mod. Sens.   |           0 |           0 |           0 |           0 |           0 |           3 |
-| Oscillator Freq. Mode  |       Ratio |       Ratio |       Ratio |       Ratio |       Ratio |       Ratio |
-| Frequency              |           1 |           3 |           1 |           3 |           3 |          12 |
-| Detune                 |          +0 |          +0 |          +0 |          +0 |          +0 |          +0 |
-+------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
-| Envelope Generator     |             |             |             |             |             |             |
-|   Rate 1 : Level 1     |   74 : 99   |   91 : 99   |   78 : 99   |   81 : 99   |   81 : 99   |   99 : 99   |
-|   Rate 2 : Level 2     |   85 : 95   |   25 : 86   |   87 : 92   |   87 : 92   |   87 : 92   |   57 : 0    |
-|   Rate 3 : Level 3     |   27 : 0    |   39 : 0    |   22 : 0    |   22 : 0    |   22 : 0    |   99 : 0    |
-|   Rate 4 : Level 4     |   70 : 0    |   60 : 0    |   75 : 0    |   75 : 0    |   75 : 0    |   75 : 0    |
-+------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
-| Keyboard Level Scaling |             |             |             |             |             |             |
-|   Breakpoint           |         A-1 |         A-1 |          G2 |         A-1 |         A-1 |          C3 |
-|   Left Curve           |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |
-|   Right Curve          |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |        -LIN |
-|   Left Depth           |           0 |           0 |           9 |           0 |           0 |          53 |
-|   Right Depth          |           0 |          65 |           0 |          14 |          15 |          20 |
-+------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
-| Keyboard Rate Scaling  |           4 |           2 |           3 |           4 |           4 |           0 |
-| Output Level           |          99 |          93 |          99 |          89 |          99 |          57 |
-| Key Velocity Sens.     |           5 |           7 |           7 |           4 |           7 |           6 |
-+------------------------+-------------+-------------+-------------+-------------+-------------+-------------+
++-----------------------+------------+------------+------------+------------+------------+------------+
+|                       | Operator 1 | Operator 2 | Operator 3 | Operator 4 | Operator 5 | Operator 6 |
++-----------------------+------------+------------+------------+------------+------------+------------+
+| Amplitude Mod. Sens.  |          0 |          0 |          0 |          0 |          0 |          3 |
+| Oscillator Freq. Mode |      Ratio |      Ratio |      Ratio |      Ratio |      Ratio |      Ratio |
+| Frequency             |          1 |          3 |          1 |          3 |          3 |         12 |
+| Detune                |         +0 |         +0 |         +0 |         +0 |         +0 |         +0 |
++-----------------------+------------+------------+------------+------------+------------+------------+
+| Envelope Generator    |            |            |            |            |            |            |
+|   Rate 1 : Level 1    |   74 : 99  |   91 : 99  |   78 : 99  |   81 : 99  |   81 : 99  |   99 : 99  |
+|   Rate 2 : Level 2    |   85 : 95  |   25 : 86  |   87 : 92  |   87 : 92  |   87 : 92  |   57 : 0   |
+|   Rate 3 : Level 3    |   27 : 0   |   39 : 0   |   22 : 0   |   22 : 0   |   22 : 0   |   99 : 0   |
+|   Rate 4 : Level 4    |   70 : 0   |   60 : 0   |   75 : 0   |   75 : 0   |   75 : 0   |   75 : 0   |
++-----------------------+------------+------------+------------+------------+------------+------------+
+| Keybd. Level Scaling  |            |            |            |            |            |            |
+|   Breakpoint          |        A-1 |        A-1 |         G2 |        A-1 |        A-1 |         C3 |
+|   Left Curve          |       -LIN |       -LIN |       -LIN |       -LIN |       -LIN |       -LIN |
+|   Right Curve         |       -LIN |       -LIN |       -LIN |       -LIN |       -LIN |       -LIN |
+|   Left Depth          |          0 |          0 |          9 |          0 |          0 |         53 |
+|   Right Depth         |          0 |         65 |          0 |         14 |         15 |         20 |
++-----------------------+------------+------------+------------+------------+------------+------------+
+| Keyboard Rate Scaling |          4 |          2 |          3 |          4 |          4 |          0 |
+| Output Level          |         99 |         93 |         99 |         89 |         99 |         57 |
+| Key Velocity Sens.    |          5 |          7 |          7 |          4 |          7 |          6 |
++-----------------------+------------+------------+------------+------------+------------+------------+
 
 ```
 

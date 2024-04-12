@@ -26,6 +26,7 @@
  *              Option -l is now -d (voicedata). Option -c is now -l (with opposite meaning).
  *              Table-borders use Unicode characters if Unicode is selected.
  *              A different table layout for the first 2 tables can be compiled (TABLE_VARIANT).
+ *  2024-04-12: Option -f implemented. Table formatting optimized
  *
  */
 
@@ -49,7 +50,7 @@
 // ***************************************************************************
 
 //! program version
-const char *version = "1.03";
+const char *version = "1.03a";
 
 
 //! sysex file-size of a dx7 bank-dump
@@ -128,6 +129,9 @@ bool fixNeeded = false;
 //! the open file is a single voice file
 bool singleVoiceFile = false;
 
+//! use form-feed instead of patch separator line
+bool formfeed = false;
+
 //! printable voice-name in ASCII or UNICODE 
 char name[41];      // max. length required for unicode
 //char name[11];        // max. length required for ASCII only
@@ -199,6 +203,7 @@ const char optionsText[] = {
     "  -d, --voicedata     show voice data lists\n"
     "  -l, --long          long listing format (one line per name or parameter)\n"
     "  -p NUM, --patch NUM show voice data list of patch number NUM\n"
+	"  -f, --formfeed      use form-feed instead of patch separator line\n"
     "  --fix               try to fix corrupt files\n"
     "                        creates a backup of the original file (*.ORIG)\n"
     "  --no-backup         don't create backups when fixing files\n"
@@ -209,9 +214,11 @@ const char optionsText[] = {
     "  -e, --errors        report only files with errors\n"
     "  -x, --hex           show voice names also as HEX and print single voice data in HEX\n"
 #ifdef USE_UNICODE_DEFAULT
-    "  -a, --ascii         use ASCII characters to show voice-names and algorithms (default = Unicode)\n"
+    "  -a, --ascii         use ASCII characters for voice-names, algorithms, and tables\n"
+	"                        (default = Unicode)\n"
 #else
-    "  -u, --unicode       use unicode charactes to show voice-names and algorithms (default = ASCII)\n"
+    "  -u, --unicode       use unicode charactes for voice-names, algorithms, and tables\n"
+	"                        (default = ASCII)\n"
 #endif
     "  -v, --version       version info\n"
     "  -h, --help          this help"
@@ -458,7 +465,7 @@ const char *LFOWave(unsigned x)
                             "Square", "Sine", "Sample & Hold" };
 
     const char *waves_tableview[] = { "Triangle", "Saw Down", "Saw Up",
-                            	  "Square", "Sine", "S&H" };
+                            	  "Square", "Sine", "S/H" };
 
     if (tabularListing)
     	return waves_tableview[x];
@@ -551,12 +558,13 @@ void processOpts(int *argc, char ***argv)
     struct option opts[] = {
         { "voicedata", 0, 0, 'd' },
         { "long", 0, 0, 'l' },
-        { "find-dupes", 0, 0, 'i' },	// a hidden option
+        { "find-dupes", 0, 0, 'D' },	// a hidden option
         { "patch", 1, 0, 'p' },
-        { "fix", 0, 0, 'f' },
+        { "formfeed", 0, 0, 'f' },
+        { "fix", 0, 0, 'F' },
         { "yes", 0, 0, 'y' },
         { "plain-names", 0, 0, 'n' },
-        { "no-backup", 0, 0, 'k' },
+        { "no-backup", 0, 0, 'K' },
         { "errors", 0, 0, 'e' },
         { "hex", 0, 0, 'x' },
         { "version", 0, 0, 'v' },
@@ -573,7 +581,7 @@ void processOpts(int *argc, char ***argv)
   
     for (;;)
     {
-        int i = getopt_long(*argc, *argv, "dlp:nyexvoh" ENCODE_ARG, opts, NULL);
+        int i = getopt_long(*argc, *argv, "dlDp:fynexvoh" ENCODE_ARG, opts, NULL);
         if (i == -1)
             break;
           
@@ -585,7 +593,7 @@ void processOpts(int *argc, char ***argv)
         case 'l':
             tabularListing = false;
             break;
-        case 'i':
+        case 'D':  // a hidden option
             findDupes = true;
             break;
         case 'p':
@@ -593,13 +601,16 @@ void processOpts(int *argc, char ***argv)
             patch--;
             voiceDataList = true;
             break;
+        case 'f':
+            formfeed = true;
+            break;
         case 'x':
             showHex = true;
             break;
-        case 'f': // --fix (long option only)
+        case 'F':  // --fix (long option only)
             fixFiles = true;
             break;
-        case 'k': // --no-backup (long option only)
+        case 'K':  // --no-backup (long option only)
             noBackup = true;
             break;
 		case 'n':
@@ -628,7 +639,7 @@ void processOpts(int *argc, char ***argv)
         case 'h':
 			//printf("%s", helpText);
 			puts(usageText);
-        case 'o':
+        case 'o':  // a hidden option (internally used for dx7dumpall -h)
 			puts(optionsText);
             exit(0);
         default:
@@ -937,13 +948,13 @@ char empty[1] = "";
  */
 void OpTableRow(const char* name, char* data = empty)
 {
-    printf("\n%s %-22s %s", vl, name, vl);
+    printf("\n%s %-22s%s", vl, name, vl);
     if (data[0] == 0)
     {
         // print a blank row if no data
         for (unsigned i = 0; i < 6; i++)
         {
-            printf("             %s", vl);
+            printf("            %s", vl);
         }
     }
     else
@@ -961,20 +972,20 @@ void OpTableSeparator(HorRulerPos pos)
 	if (useUnicode)
 	{
 		const char* middle = middleBorder[pos];
-	    printf("\n%s────────────────────────%s",leftBorder[pos], middleBorder[pos]);
+	    printf("\n%s───────────────────────%s",leftBorder[pos], middleBorder[pos]);
 	    for (unsigned i = 1; i < 7; i++)
 	    {
 			if (i == 6)
 				middle = rightBorder[pos];
-	        printf("─────────────%s", middle);
+	        printf("────────────%s", middle);
 	    }
 	}
 	else
 	{
-	    printf("\n+------------------------+");
+	    printf("\n+-----------------------+");
 	    for (unsigned i = 1; i < 7; i++)
 	    {
-	        printf("-------------+");
+	        printf("------------+");
 	    }
 	}
 }
@@ -985,13 +996,20 @@ void OpTableSeparator(HorRulerPos pos)
  */
 void VoiceSeparator()
 {
-    // make voice separator same length (-1) as op-table
-    printf("\n=========================");
-    for (unsigned i = 1; i < 7; i++)
-    {
-        printf("==============");
-    }
-	puts("\n");
+	if (formfeed)
+	{
+		printf("\f");
+	}
+	else
+	{
+	    // make voice separator same length (-1) as op-table
+	    printf("\n========================");
+	    for (unsigned i = 1; i < 7; i++)
+	    {
+	        printf("=============");
+	    }
+		puts("\n");
+	}
 }
 
 // ***************************************************************************
@@ -1400,37 +1418,37 @@ void Format(const DX7Sysex *sysex, const char *filename)
                         char buffer[25];
                         const unsigned j = 5 - i;
                         sprintf(tableHeader + strlen(tableHeader), 
-                            " Operator %-2u %s", i + 1, vl);
+                            " Operator %u %s", i + 1, vl);
                         sprintf(ampModSens + strlen(ampModSens), 
-                            " %11u %s", voice->op[j].amplitudeModulationSensitivity, vl);
+                            " %10u %s", voice->op[j].amplitudeModulationSensitivity, vl);
                         sprintf(oscMode + strlen(oscMode), 
-                            " %11s %s", Mode(voice->op[j].oscillatorMode), vl);
+                            " %10s %s", Mode(voice->op[j].oscillatorMode), vl);
                         sprintf(detune + strlen(detune), 
-                            " %+11d %s", voice->op[j].detune - 7, vl);
+                            " %+10d %s", voice->op[j].detune - 7, vl);
                         sprintf(egR1L1 + strlen(egR1L1), 
-                            " %4u : %-4u %s", voice->op[j].EG_R1, voice->op[j].EG_L1, vl);
+                            " %4u : %-3u %s", voice->op[j].EG_R1, voice->op[j].EG_L1, vl);
                         sprintf(egR2L2 + strlen(egR2L2), 
-                            " %4u : %-4u %s", voice->op[j].EG_R2, voice->op[j].EG_L2, vl);
+                            " %4u : %-3u %s", voice->op[j].EG_R2, voice->op[j].EG_L2, vl);
                         sprintf(egR3L3 + strlen(egR3L3), 
-                            " %4u : %-4u %s", voice->op[j].EG_R3, voice->op[j].EG_L3, vl);
+                            " %4u : %-3u %s", voice->op[j].EG_R3, voice->op[j].EG_L3, vl);
                         sprintf(egR4L4 + strlen(egR4L4), 
-                            " %4u : %-4u %s", voice->op[j].EG_R4, voice->op[j].EG_L4, vl);
+                            " %4u : %-3u %s", voice->op[j].EG_R4, voice->op[j].EG_L4, vl);
                         sprintf(breakpoint + strlen(breakpoint), 
-                            " %11s %s", Breakpoint(voice->op[j].levelScalingBreakPoint).c_str(), vl);
+                            " %10s %s", Breakpoint(voice->op[j].levelScalingBreakPoint).c_str(), vl);
                         sprintf(leftCurve + strlen(leftCurve), 
-                            " %11s %s", Curve(voice->op[j].scaleLeftCurve), vl);
+                            " %10s %s", Curve(voice->op[j].scaleLeftCurve), vl);
                         sprintf(rightCurve + strlen(rightCurve), 
-                            " %11s %s", Curve(voice->op[j].scaleRightCurve), vl);
+                            " %10s %s", Curve(voice->op[j].scaleRightCurve), vl);
                         sprintf(leftDepth + strlen(leftDepth), 
-                            " %11u %s", voice->op[j].scaleLeftDepth, vl);
+                            " %10u %s", voice->op[j].scaleLeftDepth, vl);
                         sprintf(rightDepth + strlen(rightDepth), 
-                            " %11u %s", voice->op[j].scaleRightDepth, vl);
+                            " %10u %s", voice->op[j].scaleRightDepth, vl);
                         sprintf(rateScale + strlen(rateScale), 
-                            " %11u %s", voice->op[j].rateScale, vl);
+                            " %10u %s", voice->op[j].rateScale, vl);
                         sprintf(outputLevel + strlen(outputLevel), 
-                            " %11u %s", voice->op[j].outputLevel, vl);
+                            " %10u %s", voice->op[j].outputLevel, vl);
                         sprintf(keyVelSens + strlen(keyVelSens), 
-                            " %11u %s", voice->op[j].keyVelocitySensitivity, vl);
+                            " %10u %s", voice->op[j].keyVelocitySensitivity, vl);
     
                         // Frequency calculation
                         // If ratio mode
@@ -1443,14 +1461,14 @@ void Format(const DX7Sysex *sysex, const char *filename)
                             const double freq = coarse + 
                                 ((double)voice->op[j].frequencyFine * coarse / 100);
                             
-                            sprintf(frequency + strlen(frequency), " %11g %s", freq, vl);
+                            sprintf(frequency + strlen(frequency), " %10g %s", freq, vl);
                         }
                         else  // fixed mode
                         {
                             const double power = (double)(voice->op[j].frequencyCoarse % 4) +
                                                  (double)voice->op[j].frequencyFine / 100;
                             const double freq = pow(10, power);
-                            sprintf(frequency + strlen(frequency), "%9g Hz %s", freq, vl);
+                            sprintf(frequency + strlen(frequency), "%8g Hz %s", freq, vl);
                         }
                     }
     
@@ -1470,7 +1488,7 @@ void Format(const DX7Sysex *sysex, const char *filename)
                     OpTableRow("  Rate 3 : Level 3", egR3L3);
                     OpTableRow("  Rate 4 : Level 4", egR4L4);
                     OpTableSeparator(MIDDLE);
-                    OpTableRow("Keyboard Level Scaling");
+                    OpTableRow("Keybd. Level Scaling");
                     OpTableRow("  Breakpoint", breakpoint);
                     OpTableRow("  Left Curve", leftCurve);
                     OpTableRow("  Right Curve", rightCurve);
