@@ -2,7 +2,7 @@
  *  \brief Yamaha DX7 Sysex Dump.
  *  
  *  Copyright 2012, Ted Felix
- *  Modifications 2024 by B.Lex
+ *  Modifications 2024 by Bernhard Lex
  *  License: GPLv3+
  * 
  *  Takes a Yamaha DX7 voice-bank sysex file and formats it as human readable text.
@@ -27,6 +27,7 @@
  *              Table-borders use Unicode characters if Unicode is selected.
  *              A different table layout for the first 2 tables can be compiled (TABLE_VARIANT).
  *  2024-04-12: Option -f implemented. Table formatting optimized
+ *  2024-04-13: Minor code optimisations
  *
  */
 
@@ -50,7 +51,7 @@
 // ***************************************************************************
 
 //! program version
-const char *version = "1.03a";
+const char *version = "1.03b";
 
 
 //! sysex file-size of a dx7 bank-dump
@@ -65,9 +66,9 @@ const unsigned singleRawDataSize = 155;
 
 //! horizontal ruler position in a table (used for setting unicode border characters)
 enum HorRulerPos {
-	TOP,
-	MIDDLE,
-	BOTTOM
+    TOP,
+    MIDDLE,
+    BOTTOM
 };
 
 //! set by option "-x" to show some data in hexadecimal
@@ -129,7 +130,7 @@ bool fixNeeded = false;
 //! the open file is a single voice file
 bool singleVoiceFile = false;
 
-//! use form-feed instead of patch separator line
+//! set by option "-f" to use form-feed instead of separator line
 bool formfeed = false;
 
 //! printable voice-name in ASCII or UNICODE 
@@ -144,15 +145,15 @@ const char vertLineUnicode[4] = "│";
 const char* vl;
 
 //! symbols for UNICODE table borders
-const char tl[] = "┌";
-const char tm[] = "┬";
-const char tr[] = "┐";
-const char ml[] = "├";
-const char mm[] = "┼";
-const char mr[] = "┤";
-const char bl[] = "└";
-const char bm[] = "┴";
-const char br[] = "┘";
+const char tl[4] = "┌";
+const char tm[4] = "┬";
+const char tr[4] = "┐";
+const char ml[4] = "├";
+const char mm[4] = "┼";
+const char mr[4] = "┤";
+const char bl[4] = "└";
+const char bm[4] = "┴";
+const char br[4] = "┘";
 //const char vv[] = "│";
 //const char hh[] = "─";
 
@@ -165,7 +166,7 @@ const char rightBorder[3][4] = {"┐", "┤", "┘"};
 const char lcdTableUnicode[][4] = {
     "₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈", "₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈",   // 0x00
     " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ",   // 0x10
-    " ", "!", "\"", "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", "-", ".", "/",   // 0x20
+    " ", "!", "\"", "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", "-", ".", "/",  // 0x20
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ":", ";", "<", "=", ">", "?",   // 0x30
     "@", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O",   // 0x40
     "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "[", "¥", "]", "^", "_",   // 0x50
@@ -185,7 +186,7 @@ const char lcdTableUnicode[][4] = {
 const char lcdTableAscii[] = {
     ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',   // 0x00
     ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',   // 0x10
-    ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',   // 0x20
+    ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',  // 0x20
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?',   // 0x30
     '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',   // 0x40
     'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', 'Y', ']', '^', '_',   // 0x50
@@ -203,7 +204,7 @@ const char optionsText[] = {
     "  -d, --voicedata     show voice data lists\n"
     "  -l, --long          long listing format (one line per name or parameter)\n"
     "  -p NUM, --patch NUM show voice data list of patch number NUM\n"
-	"  -f, --formfeed      use form-feed instead of patch separator line\n"
+    "  -f, --formfeed      use form-feed instead of patch separator line\n"
     "  --fix               try to fix corrupt files\n"
     "                        creates a backup of the original file (*.ORIG)\n"
     "  --no-backup         don't create backups when fixing files\n"
@@ -215,10 +216,10 @@ const char optionsText[] = {
     "  -x, --hex           show voice names also as HEX and print single voice data in HEX\n"
 #ifdef USE_UNICODE_DEFAULT
     "  -a, --ascii         use ASCII characters for voice-names, algorithms, and tables\n"
-	"                        (default = Unicode)\n"
+    "                        (default = Unicode)\n"
 #else
     "  -u, --unicode       use unicode charactes for voice-names, algorithms, and tables\n"
-	"                        (default = ASCII)\n"
+    "                        (default = ASCII)\n"
 #endif
     "  -v, --version       version info\n"
     "  -h, --help          this help"
@@ -417,8 +418,8 @@ struct DX7SingleSysex
 const char *OutOfRange()
 {
     if (tabularListing)
-		return "~~~";
-	else
+        return "~~";
+    else
         return "*out of range*";
 }
 
@@ -465,12 +466,12 @@ const char *LFOWave(unsigned x)
                             "Square", "Sine", "Sample & Hold" };
 
     const char *waves_tableview[] = { "Triangle", "Saw Down", "Saw Up",
-                            	  "Square", "Sine", "S/H" };
+                                  "Square", "Sine", "S/H" };
 
     if (tabularListing)
-    	return waves_tableview[x];
-	else
-    	return waves[x];
+        return waves_tableview[x];
+    else
+        return waves[x];
 }
 
 /*! Convert parameter value to Mode string.
@@ -488,9 +489,9 @@ const char *Mode(unsigned x)
     const char *modes_tableview[] = { "Ratio", "Fixed" };
 
     if (tabularListing)
-    	return modes_tableview[x];
-	else
-	    return modes[x];
+        return modes_tableview[x];
+    else
+        return modes[x];
 }
 
 /*! Convert parameter value to Note-name string.
@@ -509,7 +510,7 @@ const char *Note(unsigned x)
 /*! Convert parameter value to Transpose string.
  *
  * \param x parameter value
- * \return pointer to value string
+ * \return pointer to transpose value string
  */
 std::string Transpose(unsigned x)
 {
@@ -526,7 +527,7 @@ std::string Transpose(unsigned x)
 /*! Convert parameter value to Breakpoint string.
  *
  * \param x parameter value
- * \return pointer to value string
+ * \return pointer to breakpoint value string
  */
 std::string Breakpoint(unsigned x)
 {
@@ -546,6 +547,36 @@ std::string Breakpoint(unsigned x)
     return buffer;
 }
 
+/*! Frequency calculation and output as string
+ *
+ * \param op pointer to struct of values for one operator
+ * \return pointer to frequency value string
+ */
+std::string Frequency(OperatorPacked op)
+{
+    char buffer[18];
+    // If ratio mode
+    if (op.oscillatorMode == 0)
+    {
+        double coarse = op.frequencyCoarse;
+        if (coarse == 0)
+            coarse = .5;
+    
+        const double freq = coarse + ((double)op.frequencyFine * coarse / 100);
+        
+        sprintf(buffer, "%g", freq);
+    }
+    else  // fixed mode
+    {
+        const double power = (double)(op.frequencyCoarse % 4) +
+                             (double)op.frequencyFine / 100;
+        const double freq = pow(10, power);
+        sprintf(buffer, "%g Hz", freq);
+    }
+    return buffer;
+}
+
+
 // ***************************************************************************
 
 /*! Process command-line options.
@@ -558,7 +589,7 @@ void processOpts(int *argc, char ***argv)
     struct option opts[] = {
         { "voicedata", 0, 0, 'd' },
         { "long", 0, 0, 'l' },
-        { "find-dupes", 0, 0, 'D' },	// a hidden option
+        { "find-dupes", 0, 0, 'D' },    // a hidden option
         { "patch", 1, 0, 'p' },
         { "formfeed", 0, 0, 'f' },
         { "fix", 0, 0, 'F' },
@@ -613,9 +644,9 @@ void processOpts(int *argc, char ***argv)
         case 'K':  // --no-backup (long option only)
             noBackup = true;
             break;
-		case 'n':
-			plainFilenames = true;
-			break;
+        case 'n':
+            plainFilenames = true;
+            break;
         case 'y':
             askToFix = false;
             break;
@@ -637,10 +668,10 @@ void processOpts(int *argc, char ***argv)
             puts(versionText);
             exit(0);
         case 'h':
-			//printf("%s", helpText);
-			puts(usageText);
+            //printf("%s", helpText);
+            puts(usageText);
         case 'o':  // a hidden option (internally used for dx7dumpall -h)
-			puts(optionsText);
+            puts(optionsText);
             exit(0);
         default:
             puts("Try -h for help.");
@@ -931,10 +962,10 @@ int VerifySingle(const DX7SingleSysex *sysex)
  */ 
 void setVertLineChar()
 {
-	if (useUnicode)
-		vl = vertLineUnicode;
-	else
-		vl = vertLineAscii;
+    if (useUnicode)
+        vl = vertLineUnicode;
+    else
+        vl = vertLineAscii;
 }
 
 // ***************************************************************************
@@ -965,29 +996,29 @@ void OpTableRow(const char* name, char* data = empty)
 
 // ***************************************************************************
 
-/*! Print the horizontal line of an OperatorTable in compact view.
+/*! Print the horizontal line of an OperatorTable
  */
 void OpTableSeparator(HorRulerPos pos)
 {
-	if (useUnicode)
-	{
-		const char* middle = middleBorder[pos];
-	    printf("\n%s───────────────────────%s",leftBorder[pos], middleBorder[pos]);
-	    for (unsigned i = 1; i < 7; i++)
-	    {
-			if (i == 6)
-				middle = rightBorder[pos];
-	        printf("────────────%s", middle);
-	    }
-	}
-	else
-	{
-	    printf("\n+-----------------------+");
-	    for (unsigned i = 1; i < 7; i++)
-	    {
-	        printf("------------+");
-	    }
-	}
+    if (useUnicode)
+    {
+        const char* middle = middleBorder[pos];
+        printf("\n%s───────────────────────%s",leftBorder[pos], middleBorder[pos]);
+        for (unsigned i = 1; i < 7; i++)
+        {
+            if (i == 6)
+                middle = rightBorder[pos];
+            printf("────────────%s", middle);
+        }
+    }
+    else
+    {
+        printf("\n+-----------------------+");
+        for (unsigned i = 1; i < 7; i++)
+        {
+            printf("------------+");
+        }
+    }
 }
 
 // ***************************************************************************
@@ -996,20 +1027,20 @@ void OpTableSeparator(HorRulerPos pos)
  */
 void VoiceSeparator()
 {
-	if (formfeed)
-	{
-		printf("\f");
-	}
-	else
-	{
-	    // make voice separator same length (-1) as op-table
-	    printf("\n========================");
-	    for (unsigned i = 1; i < 7; i++)
-	    {
-	        printf("=============");
-	    }
-		puts("\n");
-	}
+    if (formfeed)
+    {
+        printf("\f");
+    }
+    else
+    {
+        // make voice separator same length (-1) as op-table
+        printf("\n========================");
+        for (unsigned i = 1; i < 7; i++)
+        {
+            printf("=============");
+        }
+        puts("\n");
+    }
 }
 
 // ***************************************************************************
@@ -1057,13 +1088,13 @@ void PrintFilename(const char *filename)
         n = 2;
     }
     if (plainFilenames)
-	{
-    	printf("%s\n", filename + n);
-	}
-	else
-	{
-		printf("File: \"%s\"\n", filename + n);
-	}
+    {
+        printf("%s\n", filename + n);
+    }
+    else
+    {
+        printf("File: \"%s\"\n", filename + n);
+    }
 }
 
 // ***************************************************************************
@@ -1132,15 +1163,15 @@ void Format(const DX7Sysex *sysex, const char *filename)
         if (softError)
             VoiceSeparator();
 
-		const char** algorithmDiagram;
-		if (useUnicode)
-		{
-			algorithmDiagram = algorithmDiagramUnicode;
-		}
-		else
-		{
-        	algorithmDiagram = algorithmDiagramAscii;
-		}
+        const char** algorithmDiagram;
+        if (useUnicode)
+        {
+            algorithmDiagram = algorithmDiagramUnicode;
+        }
+        else
+        {
+            algorithmDiagram = algorithmDiagramAscii;
+        }
 
         // For each voice.
         for (unsigned voiceNum = 0; voiceNum < 32; ++voiceNum)
@@ -1149,7 +1180,7 @@ void Format(const DX7Sysex *sysex, const char *filename)
             {
                 const VoicePacked *voice = &(sysex->voices[voiceNum]);
           
-                // Long Listing
+                // Voice Data List
           
                 PrintFilename(filename);
                 printf("Voice-#: %d\n", voiceNum + 1);
@@ -1180,219 +1211,185 @@ void Format(const DX7Sysex *sysex, const char *filename)
                 }
 
                 puts("\n");
-                printf("Algorithm: %u\n", voice->algorithm + 1);
 
                 if (tabularListing)
                 {
+                    printf("Algorithm: %u\n", voice->algorithm + 1);
                     // print algorithm diagram as ASCII-art
-                	printf("\n%s\n", algorithmDiagram[voice->algorithm]);
+                    printf("\n%s\n", algorithmDiagram[voice->algorithm]);
 
-                	//puts("");
+                    //puts("");
 
 #if TABLE_VARIANT == 2
-					// TABLE_VARIANT 2
+                    // TABLE_VARIANT 2
 
-					// +------------+-------+-------+------------+--------+
-					// |            | Algo- | Feed- | Oscillator | Trans- |
-					// | Voice Name | rithm | back  | Key Sync   | pose   |
-					// +------------+-------+-------+------------+--------+
-					if (useUnicode)
-						printf("┌────────────┬───────┬───────┬────────────┬────────┐\n");
-					else
-						printf("+------------+-------+-------+------------+--------+\n");
-					printf("%1$s            %1$s Algo- %1$s Feed- %1$s Oscillator "
-						   "%1$s Trans- %1$s\n", vl);
-					
-					printf("%1$s Voice Name %1$s rithm %1$s back  %1$s Key Sync   "
-					       "%1$s pose   %1$s\n", vl);
-					if (useUnicode)
-						printf("├────────────┼───────┼───────┼────────────┼────────┤\n");
-					else
-						printf("+------------+-------+-------+------------+--------+\n");
-					printf("%s %-10s %s %5u %s %5u %s %10s %s %6d %s\n",
-						vl, name, vl,
-						voice->algorithm + 1, vl,
-						voice->feedback, vl,
-						OnOff(voice->oscKeySync), vl,
-						voice->transpose - 24, vl);
-					if (useUnicode)
-						printf("└────────────┴───────┴───────┴────────────┴────────┘\n");
-					else
-						printf("+------------+-------+-------+------------+--------+\n");
-                	puts("");
-					if (!useUnicode)
-                		puts("");
+                    // +------------+-------+-------+------------+--------+
+                    // |            | Algo- | Feed- | Oscillator | Trans- |
+                    // | Voice Name | rithm | back  | Key Sync   | pose   |
+                    // +------------+-------+-------+------------+--------+
+                    if (useUnicode)
+                        printf("┌────────────┬───────┬───────┬────────────┬────────┐\n");
+                    else
+                        printf("+------------+-------+-------+------------+--------+\n");
+                    printf("%1$s            %1$s Algo- %1$s Feed- %1$s Oscillator "
+                           "%1$s Trans- %1$s\n", vl);
+                    
+                    printf("%1$s Voice Name %1$s rithm %1$s back  %1$s Key Sync   "
+                           "%1$s pose   %1$s\n", vl);
+                    if (useUnicode)
+                        printf("├────────────┼───────┼───────┼────────────┼────────┤\n");
+                    else
+                        printf("+------------+-------+-------+------------+--------+\n");
+                    printf("%s %-10s %s %5u %s %5u %s %10s %s %6d %s\n",
+                        vl, name, vl,
+                        voice->algorithm + 1, vl,
+                        voice->feedback, vl,
+                        OnOff(voice->oscKeySync), vl,
+                        voice->transpose - 24, vl);
+                    if (useUnicode)
+                        printf("└────────────┴───────┴───────┴────────────┴────────┘\n");
+                    else
+                        printf("+------------+-------+-------+------------+--------+\n");
+                    puts("");
+                    if (!useUnicode)
+                        puts("");
 
-					// +----------------------------------------------------------------+-------------------------------+
-					// |                              LFO                               |   Pitch Envelope Generator    |
-					// +------+-------+-------+-----------+-----------+------+----------+-------+-------+-------+-------+
-					// |      |       |       | Pitch     | Amplitude | Key  | Pitch    |       |       |       |       |
-					// | Wave | Speed | Delay | Mod Depth | Mod Depth | Sync | Mod Sens | R1:L1 | R2:L2 | R3:L3 | R4:L4 |
-					// +------+-------+-------+-----------+-----------+------+----------+-------+-------+-------+-------+
-					// 
-					if (useUnicode)
-						printf("┌─────────────────────────────────────────────────────────────────────"
-							   "┬───────────────────────────────┐\n");
-					else
-						printf("+---------------------------------------------------------------------"
-							   "+-------------------------------+\n");
-					printf("%1$s                                  LFO                                "
-						   "%1$s   Pitch Envelope Generator    %1$s\n", vl);
-					if (useUnicode)
-						printf("├──────────┬───────┬───────┬───────────┬───────────┬───────┬──────────"
-							   "┼───────┬───────┬───────┬───────┤\n");
-					else
-						printf("+----------+-------+-------+-----------+-----------+-------+----------"
-							   "+-------+-------+-------+-------+\n");
-					printf("%1$s          %1$s       %1$s       %1$s Pitch     "
-						   "%1$s Amplitude %1$s Key   %1$s Pitch    "
-						   "%1$s       %1$s       %1$s       %1$s       %1$s\n", vl);
-					printf("%1$s Wave     %1$s Speed %1$s Delay %1$s Mod Depth "
-					       "%1$s Mod Depth %1$s Sync  %1$s Mod Sens "
-						   "%1$s R1:L1 %1$s R2:L2 %1$s R3:L3 %1$s R4:L4 %1$s\n", vl);
-					if (useUnicode)
-						printf("├──────────┼───────┼───────┼───────────┼───────────┼───────┼──────────"
-							   "┼───────┼───────┼───────┼───────┤\n");
-					else
-						printf("+----------+-------+-------+-----------+-----------+-------+----------"
-							   "+-------+-------+-------+-------+\n");
-					printf("%s %8s %s %5u %s %5u %s %9u %s %9u %s %5s %s %8u "
-						   "%s %2u:%-2u %s %2u:%-2u %s %2u:%-2u %s %2u:%-2u %s\n",
-	                	vl, LFOWave(voice->lfoWave), vl,
-	                	voice->lfoSpeed, vl,
-	                	voice->lfoDelay, vl,
-	                	voice->lfoPitchModDepth, vl,
-	                	voice->lfoAMDepth, vl,
-	                	OnOff(voice->lfoSync), vl,
-	                    voice->lfoPitchModSensitivity, vl,
-						voice->pitchEGR1, voice->pitchEGL1, vl,
-						voice->pitchEGR2, voice->pitchEGL2, vl,
-						voice->pitchEGR3, voice->pitchEGL3, vl,
-						voice->pitchEGR4, voice->pitchEGL4, vl);
-					if (useUnicode)
-						printf("└──────────┴───────┴───────┴───────────┴───────────┴───────┴──────────"
-							   "┴───────┴───────┴───────┴───────┘\n");
-					else
-						printf("+----------+-------+-------+-----------+-----------+-------+----------"
-							   "+-------+-------+-------+-------+\n");
-					if (!useUnicode)
-                		puts("");
+                    // +--------------------------------------------------+-----------------------+
+                    // |                       LFO                        | Pitch Env. Generator  |
+                    // +----+-----+-----+---------+---------+----+--------+-----+-----+-----+-----+
+                    // |    |     |     |Pitch    |Amplitude|Key |Pitch   |     |     |     |     |
+                    // |Wave|Speed|Delay|Mod Depth|Mod Depth|Sync|Mod Sens|R1:L1|R2:L2|R3:L3|R4:L4|
+                    // +----+-----+-----+---------+---------+----+--------+-----+-----+-----+-----+
+                    if (useUnicode)
+                        printf("┌─────────────────────────────────────────────────────────────────────"
+                               "┬───────────────────────────────┐\n");
+                    else
+                        printf("+---------------------------------------------------------------------"
+                               "+-------------------------------+\n");
+                    printf("%1$s                                  LFO                                "
+                           "%1$s   Pitch Envelope Generator    %1$s\n", vl);
+                    if (useUnicode)
+                        printf("├──────────┬───────┬───────┬───────────┬───────────┬───────┬──────────"
+                               "┼───────┬───────┬───────┬───────┤\n");
+                    else
+                        printf("+----------+-------+-------+-----------+-----------+-------+----------"
+                               "+-------+-------+-------+-------+\n");
+                    printf("%1$s          %1$s       %1$s       %1$s Pitch     "
+                           "%1$s Amplitude %1$s Key   %1$s Pitch    "
+                           "%1$s       %1$s       %1$s       %1$s       %1$s\n", vl);
+                    printf("%1$s Wave     %1$s Speed %1$s Delay %1$s Mod Depth "
+                           "%1$s Mod Depth %1$s Sync  %1$s Mod Sens "
+                           "%1$s R1:L1 %1$s R2:L2 %1$s R3:L3 %1$s R4:L4 %1$s\n", vl);
+                    if (useUnicode)
+                        printf("├──────────┼───────┼───────┼───────────┼───────────┼───────┼──────────"
+                               "┼───────┼───────┼───────┼───────┤\n");
+                    else
+                        printf("+----------+-------+-------+-----------+-----------+-------+----------"
+                               "+-------+-------+-------+-------+\n");
+                    printf("%s %8s %s %5u %s %5u %s %9u %s %9u %s %5s %s %8u "
+                           "%s %2u:%-2u %s %2u:%-2u %s %2u:%-2u %s %2u:%-2u %s\n",
+                        vl, LFOWave(voice->lfoWave), vl,
+                        voice->lfoSpeed, vl,
+                        voice->lfoDelay, vl,
+                        voice->lfoPitchModDepth, vl,
+                        voice->lfoAMDepth, vl,
+                        OnOff(voice->lfoSync), vl,
+                        voice->lfoPitchModSensitivity, vl,
+                        voice->pitchEGR1, voice->pitchEGL1, vl,
+                        voice->pitchEGR2, voice->pitchEGL2, vl,
+                        voice->pitchEGR3, voice->pitchEGL3, vl,
+                        voice->pitchEGR4, voice->pitchEGL4, vl);
+                    if (useUnicode)
+                        printf("└──────────┴───────┴───────┴───────────┴───────────┴───────┴──────────"
+                               "┴───────┴───────┴───────┴───────┘\n");
+                    else
+                        printf("+----------+-------+-------+-----------+-----------+-------+----------"
+                               "+-------+-------+-------+-------+\n");
+                    if (!useUnicode)
+                        puts("");
 
 #else   
-					// TABLE_VARIANT 1
+                    // TABLE_VARIANT 1
 
-					// +------------+-------+-------+------------+-------------------------------+--------+
-					// |            | Algo- | Feed- | Oscillator |   Pitch Envelope Generator    | Trans- |
-					// | Voice Name | rithm | back  | Key Sync   | R1:L1 | R2:L2 | R3:L3 | R4:L4 | pose   |
-					// +------------+-------+-------+------------+-------+-------+-------+-------+--------+
-					if (useUnicode)
-						printf("┌────────────┬───────┬───────┬────────────┬───────────────────────────────┬────────┐\n");
-					else
-						printf("+------------+-------+-------+------------+-------------------------------+--------+\n");
-					if (useUnicode)
-					{
-						printf("│            │       │       │            │   Pitch Envelope Generator    │        │\n");
-						printf("│            │ Algo- │ Feed- │ Oscillator ├───────┬───────┬───────┬───────┤ Trans- │\n");
-					}
-					else
-					{
-						printf("%1$s            %1$s Algo- %1$s Feed- %1$s Oscillator "
-							   "%1$s   Pitch Envelope Generator    %1$s Trans- %1$s\n", vl);
-					}
-					printf("%1$s Voice Name %1$s rithm %1$s back  %1$s Key Sync   "
-					       "%1$s R1:L1 %1$s R2:L2 %1$s R3:L3 %1$s R4:L4 %1$s pose   %1$s\n", vl);
-					if (useUnicode)
-						printf("├────────────┼───────┼───────┼────────────┼───────┼───────┼───────┼───────┼────────┤\n");
-					else
-						printf("+------------+-------+-------+------------+-------+-------+-------+-------+--------+\n");
-					printf("%s %-10s %s %5u %s %5u %s %10s %s %2u:%-2u %s %2u:%-2u %s %2u:%-2u %s %2u:%-2u %s %6d %s\n",
-						vl, name, vl,
-						voice->algorithm + 1, vl,
-						voice->feedback, vl,
-						OnOff(voice->oscKeySync), vl,
-						voice->pitchEGR1, voice->pitchEGL1, vl,
-						voice->pitchEGR2, voice->pitchEGL2, vl,
-						voice->pitchEGR3, voice->pitchEGL3, vl,
-						voice->pitchEGR4, voice->pitchEGL4, vl,
-						voice->transpose - 24, vl);
-					if (useUnicode)
-						printf("└────────────┴───────┴───────┴────────────┴───────┴───────┴───────┴───────┴────────┘\n");
-					else
-						printf("+------------+-------+-------+------------+-------+-------+-------+-------+--------+\n");
-                	puts("");
-					if (!useUnicode)
-                		puts("");
+                    // +------------+-------+-------+------------+-------------------------------+--------+
+                    // |            | Algo- | Feed- | Oscillator |   Pitch Envelope Generator    | Trans- |
+                    // | Voice Name | rithm | back  | Key Sync   | R1:L1 | R2:L2 | R3:L3 | R4:L4 | pose   |
+                    // +------------+-------+-------+------------+-------+-------+-------+-------+--------+
+                    if (useUnicode)
+                        printf("┌────────────┬───────┬───────┬────────────┬───────────────────────────────┬────────┐\n");
+                    else
+                        printf("+------------+-------+-------+------------+-------------------------------+--------+\n");
+                    if (useUnicode)
+                    {
+                        printf("│            │       │       │            │   Pitch Envelope Generator    │        │\n");
+                        printf("│            │ Algo- │ Feed- │ Oscillator ├───────┬───────┬───────┬───────┤ Trans- │\n");
+                    }
+                    else
+                    {
+                        printf("%1$s            %1$s Algo- %1$s Feed- %1$s Oscillator "
+                               "%1$s   Pitch Envelope Generator    %1$s Trans- %1$s\n", vl);
+                    }
+                    printf("%1$s Voice Name %1$s rithm %1$s back  %1$s Key Sync   "
+                           "%1$s R1:L1 %1$s R2:L2 %1$s R3:L3 %1$s R4:L4 %1$s pose   %1$s\n", vl);
+                    if (useUnicode)
+                        printf("├────────────┼───────┼───────┼────────────┼───────┼───────┼───────┼───────┼────────┤\n");
+                    else
+                        printf("+------------+-------+-------+------------+-------+-------+-------+-------+--------+\n");
+                    printf("%s %-10s %s %5u %s %5u %s %10s %s %2u:%-2u %s %2u:%-2u %s %2u:%-2u %s %2u:%-2u %s %6d %s\n",
+                        vl, name, vl,
+                        voice->algorithm + 1, vl,
+                        voice->feedback, vl,
+                        OnOff(voice->oscKeySync), vl,
+                        voice->pitchEGR1, voice->pitchEGL1, vl,
+                        voice->pitchEGR2, voice->pitchEGL2, vl,
+                        voice->pitchEGR3, voice->pitchEGL3, vl,
+                        voice->pitchEGR4, voice->pitchEGL4, vl,
+                        voice->transpose - 24, vl);
+                    if (useUnicode)
+                        printf("└────────────┴───────┴───────┴────────────┴───────┴───────┴───────┴───────┴────────┘\n");
+                    else
+                        printf("+------------+-------+-------+------------+-------+-------+-------+-------+--------+\n");
+                    puts("");
+                    if (!useUnicode)
+                        puts("");
 
-					// +---------------------------------------------------------------------+
-					// |                                  LFO                                |
-					// |          |       |       | Pitch     | Amplitude | Key   | Pitch    |
-					// | Wave     | Speed | Delay | Mod Depth | Mod Depth | Sync  | Mod Sens |
-					// +----------+-------+-------+-----------+-----------+-------+----------+
-					// | Triangle |    30 |     0 |         8 |         0 |   Off |        2 |
-					// +----------+-------+-------+-----------+-----------+-------+----------+
-					if (useUnicode)
-						printf("┌─────────────────────────────────────────────────────────────────────┐\n");
-					else
-						printf("+---------------------------------------------------------------------+\n");
-					printf("%1$s                                  LFO                                %1$s\n", vl);
-					if (useUnicode)
-						printf("├──────────┬───────┬───────┬───────────┬───────────┬───────┬──────────┤\n");
-					printf("%1$s          %1$s       %1$s       %1$s Pitch     "
-						   "%1$s Amplitude %1$s Key   %1$s Pitch    %1$s\n", vl);
-					printf("%1$s Wave     %1$s Speed %1$s Delay %1$s Mod Depth "
-					       "%1$s Mod Depth %1$s Sync  %1$s Mod Sens %1$s\n", vl);
-					if (useUnicode)
-						printf("├──────────┼───────┼───────┼───────────┼───────────┼───────┼──────────┤\n");
-					else
-						printf("+----------+-------+-------+-----------+-----------+-------+----------+\n");
-					printf("%s %8s %s %5u %s %5u %s %9u %s %9u %s %5s %s %8u %s\n",
-	                	vl, LFOWave(voice->lfoWave), vl,
-	                	voice->lfoSpeed, vl,
-	                	voice->lfoDelay, vl,
-	                	voice->lfoPitchModDepth, vl,
-	                	voice->lfoAMDepth, vl,
-	                	OnOff(voice->lfoSync), vl,
-	                    voice->lfoPitchModSensitivity, vl);
-					if (useUnicode)
-						printf("└──────────┴───────┴───────┴───────────┴───────────┴───────┴──────────┘\n");
-					else
-						printf("+----------+-------+-------+-----------+-----------+-------+----------+\n");
-					if (!useUnicode)
-                		puts("");
+                    // +---------------------------------------------------------------------+
+                    // |                                  LFO                                |
+                    // |          |       |       | Pitch     | Amplitude | Key   | Pitch    |
+                    // | Wave     | Speed | Delay | Mod Depth | Mod Depth | Sync  | Mod Sens |
+                    // +----------+-------+-------+-----------+-----------+-------+----------+
+                    // | Triangle |    30 |     0 |         8 |         0 |   Off |        2 |
+                    // +----------+-------+-------+-----------+-----------+-------+----------+
+                    if (useUnicode)
+                        printf("┌─────────────────────────────────────────────────────────────────────┐\n");
+                    else
+                        printf("+---------------------------------------------------------------------+\n");
+                    printf("%1$s                                  LFO                                %1$s\n", vl);
+                    if (useUnicode)
+                        printf("├──────────┬───────┬───────┬───────────┬───────────┬───────┬──────────┤\n");
+                    printf("%1$s          %1$s       %1$s       %1$s Pitch     "
+                           "%1$s Amplitude %1$s Key   %1$s Pitch    %1$s\n", vl);
+                    printf("%1$s Wave     %1$s Speed %1$s Delay %1$s Mod Depth "
+                           "%1$s Mod Depth %1$s Sync  %1$s Mod Sens %1$s\n", vl);
+                    if (useUnicode)
+                        printf("├──────────┼───────┼───────┼───────────┼───────────┼───────┼──────────┤\n");
+                    else
+                        printf("+----------+-------+-------+-----------+-----------+-------+----------+\n");
+                    printf("%s %8s %s %5u %s %5u %s %9u %s %9u %s %5s %s %8u %s\n",
+                        vl, LFOWave(voice->lfoWave), vl,
+                        voice->lfoSpeed, vl,
+                        voice->lfoDelay, vl,
+                        voice->lfoPitchModDepth, vl,
+                        voice->lfoAMDepth, vl,
+                        OnOff(voice->lfoSync), vl,
+                        voice->lfoPitchModSensitivity, vl);
+                    if (useUnicode)
+                        printf("└──────────┴───────┴───────┴───────────┴───────────┴───────┴──────────┘\n");
+                    else
+                        printf("+----------+-------+-------+-----------+-----------+-------+----------+\n");
+                    if (!useUnicode)
+                        puts("");
 #endif // TABLE_VARIANT
-                }
-				else
-				{
-	                printf("Feedback: %u\n", voice->feedback);
-	          
-	                printf("LFO\n");
-	                printf("  Wave: %s\n", LFOWave(voice->lfoWave));
-	                printf("  Speed: %u\n", voice->lfoSpeed);
-	                printf("  Delay: %u\n", voice->lfoDelay);
-	                printf("  Pitch Mod. Depth: %u\n", voice->lfoPitchModDepth);
-	                printf("  Amplitude Mod. Depth: %u\n", voice->lfoAMDepth);
-	                printf("  Key Sync: %s\n", OnOff(voice->lfoSync));  
-	                printf("  Pitch Mod. Sensitivity: %u\n", 
-	                       voice->lfoPitchModSensitivity);
-	          
-	                printf("Oscillator Key Sync: %s\n", OnOff(voice->oscKeySync));
-	          
-	                printf("Pitch Envelope Generator\n");
-                    printf("  Rate 1: %u\n", voice->pitchEGR1);
-                    printf("  Rate 2: %u\n", voice->pitchEGR2);
-                    printf("  Rate 3: %u\n", voice->pitchEGR3);
-                    printf("  Rate 4: %u\n", voice->pitchEGR4);
-                    printf("  Level 1: %u\n", voice->pitchEGL1);
-                    printf("  Level 2: %u\n", voice->pitchEGL2);
-                    printf("  Level 3: %u\n", voice->pitchEGL3);
-                    printf("  Level 4: %u\n", voice->pitchEGL4);
-   
-	                //printf("Transpose: %s\n", Transpose(voice->transpose).c_str());
-    	            printf("Transpose: %d\n", voice->transpose - 24);
-                }
- 
-                if (tabularListing)
-                {
                     // buffers for operator table row data
                     char tableHeader[120] = "";
                     char ampModSens[120] = "";
@@ -1417,59 +1414,42 @@ void Format(const DX7Sysex *sysex, const char *filename)
                     {
                         char buffer[25];
                         const unsigned j = 5 - i;
+                        const OperatorPacked &op = voice->op[j];
+
                         sprintf(tableHeader + strlen(tableHeader), 
                             " Operator %u %s", i + 1, vl);
                         sprintf(ampModSens + strlen(ampModSens), 
-                            " %10u %s", voice->op[j].amplitudeModulationSensitivity, vl);
+                            " %10u %s", op.amplitudeModulationSensitivity, vl);
                         sprintf(oscMode + strlen(oscMode), 
-                            " %10s %s", Mode(voice->op[j].oscillatorMode), vl);
+                            " %10s %s", Mode(op.oscillatorMode), vl);
+                        sprintf(frequency + strlen(frequency), 
+                            " %10s %s", Frequency(op).c_str(), vl);
                         sprintf(detune + strlen(detune), 
-                            " %+10d %s", voice->op[j].detune - 7, vl);
+                            " %+10d %s", op.detune - 7, vl);
                         sprintf(egR1L1 + strlen(egR1L1), 
-                            " %4u : %-3u %s", voice->op[j].EG_R1, voice->op[j].EG_L1, vl);
+                            " %4u : %-3u %s", op.EG_R1, voice->op[j].EG_L1, vl);
                         sprintf(egR2L2 + strlen(egR2L2), 
-                            " %4u : %-3u %s", voice->op[j].EG_R2, voice->op[j].EG_L2, vl);
+                            " %4u : %-3u %s", op.EG_R2, voice->op[j].EG_L2, vl);
                         sprintf(egR3L3 + strlen(egR3L3), 
-                            " %4u : %-3u %s", voice->op[j].EG_R3, voice->op[j].EG_L3, vl);
+                            " %4u : %-3u %s", op.EG_R3, voice->op[j].EG_L3, vl);
                         sprintf(egR4L4 + strlen(egR4L4), 
-                            " %4u : %-3u %s", voice->op[j].EG_R4, voice->op[j].EG_L4, vl);
+                            " %4u : %-3u %s", op.EG_R4, voice->op[j].EG_L4, vl);
                         sprintf(breakpoint + strlen(breakpoint), 
-                            " %10s %s", Breakpoint(voice->op[j].levelScalingBreakPoint).c_str(), vl);
+                            " %10s %s", Breakpoint(op.levelScalingBreakPoint).c_str(), vl);
                         sprintf(leftCurve + strlen(leftCurve), 
-                            " %10s %s", Curve(voice->op[j].scaleLeftCurve), vl);
+                            " %10s %s", Curve(op.scaleLeftCurve), vl);
                         sprintf(rightCurve + strlen(rightCurve), 
-                            " %10s %s", Curve(voice->op[j].scaleRightCurve), vl);
+                            " %10s %s", Curve(op.scaleRightCurve), vl);
                         sprintf(leftDepth + strlen(leftDepth), 
-                            " %10u %s", voice->op[j].scaleLeftDepth, vl);
+                            " %10u %s", op.scaleLeftDepth, vl);
                         sprintf(rightDepth + strlen(rightDepth), 
-                            " %10u %s", voice->op[j].scaleRightDepth, vl);
+                            " %10u %s", op.scaleRightDepth, vl);
                         sprintf(rateScale + strlen(rateScale), 
-                            " %10u %s", voice->op[j].rateScale, vl);
+                            " %10u %s", op.rateScale, vl);
                         sprintf(outputLevel + strlen(outputLevel), 
-                            " %10u %s", voice->op[j].outputLevel, vl);
+                            " %10u %s", op.outputLevel, vl);
                         sprintf(keyVelSens + strlen(keyVelSens), 
-                            " %10u %s", voice->op[j].keyVelocitySensitivity, vl);
-    
-                        // Frequency calculation
-                        // If ratio mode
-                        if (voice->op[j].oscillatorMode == 0)
-                        {
-                            double coarse = voice->op[j].frequencyCoarse;
-                            if (coarse == 0)
-                                coarse = .5;
-              
-                            const double freq = coarse + 
-                                ((double)voice->op[j].frequencyFine * coarse / 100);
-                            
-                            sprintf(frequency + strlen(frequency), " %10g %s", freq, vl);
-                        }
-                        else  // fixed mode
-                        {
-                            const double power = (double)(voice->op[j].frequencyCoarse % 4) +
-                                                 (double)voice->op[j].frequencyFine / 100;
-                            const double freq = pow(10, power);
-                            sprintf(frequency + strlen(frequency), "%8g Hz %s", freq, vl);
-                        }
+                            " %10u %s", op.keyVelocitySensitivity, vl);
                     }
     
                     // print operator table
@@ -1477,7 +1457,6 @@ void Format(const DX7Sysex *sysex, const char *filename)
                     OpTableSeparator(TOP);
                     OpTableRow("", tableHeader);
                     OpTableSeparator(MIDDLE);
-                    OpTableRow("Amplitude Mod. Sens.", ampModSens);
                     OpTableRow("Oscillator Freq. Mode", oscMode);
                     OpTableRow("Frequency", frequency);
                     OpTableRow("Detune", detune);
@@ -1496,8 +1475,9 @@ void Format(const DX7Sysex *sysex, const char *filename)
                     OpTableRow("  Right Depth", rightDepth);
                     OpTableSeparator(MIDDLE);
                     OpTableRow("Keyboard Rate Scaling", rateScale);
-                    OpTableRow("Output Level", outputLevel);
+                    OpTableRow("Amplitude Mod. Sens.", ampModSens);
                     OpTableRow("Key Velocity Sens.", keyVelSens);
+                    OpTableRow("Output Level", outputLevel);
                     OpTableSeparator(BOTTOM);
     
                     puts("");
@@ -1509,8 +1489,36 @@ void Format(const DX7Sysex *sysex, const char *filename)
                     if (patch == -1)
                         VoiceSeparator();
                 }
-                else
+                else    // line by line listing
                 {
+                    printf("Algorithm: %u\n", voice->algorithm + 1);
+                    printf("Feedback: %u\n", voice->feedback);
+              
+                    printf("LFO\n");
+                    printf("  Wave: %s\n", LFOWave(voice->lfoWave));
+                    printf("  Speed: %u\n", voice->lfoSpeed);
+                    printf("  Delay: %u\n", voice->lfoDelay);
+                    printf("  Pitch Mod. Depth: %u\n", voice->lfoPitchModDepth);
+                    printf("  Amplitude Mod. Depth: %u\n", voice->lfoAMDepth);
+                    printf("  Key Sync: %s\n", OnOff(voice->lfoSync));  
+                    printf("  Pitch Mod. Sensitivity: %u\n", 
+                           voice->lfoPitchModSensitivity);
+              
+                    printf("Oscillator Key Sync: %s\n", OnOff(voice->oscKeySync));
+              
+                    printf("Pitch Envelope Generator\n");
+                    printf("  Rate 1: %u\n", voice->pitchEGR1);
+                    printf("  Rate 2: %u\n", voice->pitchEGR2);
+                    printf("  Rate 3: %u\n", voice->pitchEGR3);
+                    printf("  Rate 4: %u\n", voice->pitchEGR4);
+                    printf("  Level 1: %u\n", voice->pitchEGL1);
+                    printf("  Level 2: %u\n", voice->pitchEGL2);
+                    printf("  Level 3: %u\n", voice->pitchEGL3);
+                    printf("  Level 4: %u\n", voice->pitchEGL4);
+   
+                    //printf("Transpose: %s\n", Transpose(voice->transpose).c_str());
+                    printf("Transpose: %d\n", voice->transpose - 24);
+ 
                     // For each operator
                     for (unsigned i = 0; i < 6; ++i)
                     {
@@ -1521,28 +1529,8 @@ void Format(const DX7Sysex *sysex, const char *filename)
                         const unsigned j = 5 - i;
                         const OperatorPacked &op = voice->op[j];
                         
-                        printf("  Amp Mod Sensitivity: %u\n", 
-                               op.amplitudeModulationSensitivity);
                         printf("  Oscillator Mode: %s\n", Mode(op.oscillatorMode));
-                        // If ratio mode
-                        if (op.oscillatorMode == 0)
-                        {
-                            double coarse = op.frequencyCoarse;
-                            if (coarse == 0)
-                                coarse = .5;
-              
-                            const double freq = coarse + 
-                                ((double)op.frequencyFine * coarse / 100);
-                            
-                            printf("  Frequency: %g\n", freq);
-                        }
-                        else  // fixed mode
-                        {
-                            const double power = (double)(op.frequencyCoarse % 4) +
-                                                 (double)op.frequencyFine / 100;
-                            const double f = pow(10, power);
-                            printf("  Frequency: %g Hz\n", f);
-                        }
+                        printf("  Frequency: %s\n", Frequency(op).c_str());
                         printf("  Detune: %+d\n", op.detune - 7);
                         printf("  Envelope Generator\n");
                         printf("    Rate 1: %u\n", op.EG_R1);
@@ -1561,9 +1549,11 @@ void Format(const DX7Sysex *sysex, const char *filename)
                         printf("    Left Depth: %u\n", op.scaleLeftDepth);
                         printf("    Right Depth: %u\n", op.scaleRightDepth);
                         printf("  Keyboard Rate Scaling: %u\n", op.rateScale);
-                        printf("  Output Level: %u\n", op.outputLevel);
+                        printf("  Amp Mod Sensitivity: %u\n", 
+                               op.amplitudeModulationSensitivity);
                         printf("  Key Velocity Sensitivity: %u\n", 
                                op.keyVelocitySensitivity);
+                        printf("  Output Level: %u\n", op.outputLevel);
                     }
     
                     // don't print any voice separator for a single patch
@@ -1624,7 +1614,7 @@ void FindDupes(const DX7Sysex *sysex)
  */
 int processFile (char* filename)
 {
-	FILE *file = fopen(filename, "r");
+    FILE *file = fopen(filename, "r");
     if (file == NULL)
     {
         printf("ERROR: Can't open the file: %s\n", strerror(errno));
@@ -1757,7 +1747,7 @@ int processFile (char* filename)
     if (findDupes)
         FindDupes(sysex);
 
-	return 0;
+    return 0;
 };
 
 
@@ -1780,13 +1770,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-	setVertLineChar();
+    setVertLineChar();
 
-	if (processFile(argv[0]))
-	{
-		// we had errors processing the file
-		return 1;
-	}
+    if (processFile(argv[0]))
+    {
+        // we had errors processing the file
+        return 1;
+    }
 
     return 0;
 }

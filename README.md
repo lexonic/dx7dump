@@ -2,6 +2,8 @@
 
 **A command-line-tool to display Yamaha DX7 sysex files as human readable text**
 
+This tool creates DX7 patchlists and voice data lists in Unicode or plain ASCII text. 
+
 This is a fork of [Ted Felix](http://tedfelix.com/yamaha-dx7/index.html) [dx7dump](https://sourceforge.net/u/tedfelix/dx7dump/ci/master/tree/) 
 
 Based on info from
@@ -24,6 +26,7 @@ Based on info from
 	
 Linux: run `make` as regular user:
 
+	cd src
 	make
 
 this will install two programs in the user's `~/.local/bin` directory:
@@ -58,6 +61,7 @@ Options:
 ```
 
 **NOTE:** some command line options have changed with release v1.03.
+
 
 ## Usage of dx7dumpall
 
@@ -124,7 +128,6 @@ Algorithm: 8
 ┌───────────────────────┬────────────┬────────────┬────────────┬────────────┬────────────┬────────────┐
 │                       │ Operator 1 │ Operator 2 │ Operator 3 │ Operator 4 │ Operator 5 │ Operator 6 │
 ├───────────────────────┼────────────┼────────────┼────────────┼────────────┼────────────┼────────────┤
-│ Amplitude Mod. Sens.  │          0 │          0 │          0 │          0 │          0 │          3 │
 │ Oscillator Freq. Mode │      Ratio │      Ratio │      Ratio │      Ratio │      Ratio │      Ratio │
 │ Frequency             │          1 │          3 │          1 │          3 │          3 │         12 │
 │ Detune                │         +0 │         +0 │         +0 │         +0 │         +0 │         +0 │
@@ -143,8 +146,9 @@ Algorithm: 8
 │   Right Depth         │          0 │         65 │          0 │         14 │         15 │         20 │
 ├───────────────────────┼────────────┼────────────┼────────────┼────────────┼────────────┼────────────┤
 │ Keyboard Rate Scaling │          4 │          2 │          3 │          4 │          4 │          0 │
-│ Output Level          │         99 │         93 │         99 │         89 │         99 │         57 │
+│ Amplitude Mod. Sens.  │          0 │          0 │          0 │          0 │          0 │          3 │
 │ Key Velocity Sens.    │          5 │          7 │          7 │          4 │          7 │          6 │
+│ Output Level          │         99 │         93 │         99 │         89 │         99 │         57 │
 └───────────────────────┴────────────┴────────────┴────────────┴────────────┴────────────┴────────────┘
 ```
 
@@ -187,7 +191,6 @@ Algorithm: 8
 +-----------------------+------------+------------+------------+------------+------------+------------+
 |                       | Operator 1 | Operator 2 | Operator 3 | Operator 4 | Operator 5 | Operator 6 |
 +-----------------------+------------+------------+------------+------------+------------+------------+
-| Amplitude Mod. Sens.  |          0 |          0 |          0 |          0 |          0 |          3 |
 | Oscillator Freq. Mode |      Ratio |      Ratio |      Ratio |      Ratio |      Ratio |      Ratio |
 | Frequency             |          1 |          3 |          1 |          3 |          3 |         12 |
 | Detune                |         +0 |         +0 |         +0 |         +0 |         +0 |         +0 |
@@ -206,8 +209,9 @@ Algorithm: 8
 |   Right Depth         |          0 |         65 |          0 |         14 |         15 |         20 |
 +-----------------------+------------+------------+------------+------------+------------+------------+
 | Keyboard Rate Scaling |          4 |          2 |          3 |          4 |          4 |          0 |
-| Output Level          |         99 |         93 |         99 |         89 |         99 |         57 |
+| Amplitude Mod. Sens.  |          0 |          0 |          0 |          0 |          0 |          3 |
 | Key Velocity Sens.    |          5 |          7 |          7 |          4 |          7 |          6 |
+| Output Level          |         99 |         93 |         99 |         89 |         99 |         57 |
 +-----------------------+------------+------------+------------+------------+------------+------------+
 
 ```
